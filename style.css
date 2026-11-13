@@ -1,0 +1,50 @@
+:root{--bg:#f4f7f8;--card:#fff;--ink:#17252a;--mut:#5d6f75;--pri:#2b3a7a;--pri2:#e8ebf7;--gold:#c9a24a;--ok:#15803d;--warn:#b45309;--bad:#b91c1c;--line:#dde5e8}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:76px}
+header{position:sticky;top:0;z-index:5;background:var(--pri);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:3px solid var(--gold)}
+.logo{width:34px;height:34px;border-radius:50%;border:2px solid var(--gold);object-fit:cover}
+header h1{font-size:16px;margin:0;flex:1}
+.seg{display:flex;background:rgba(255,255,255,.2);border-radius:20px;padding:2px}
+.seg button{border:0;background:none;color:#fff;padding:5px 12px;border-radius:18px;font-size:13px}
+.seg button.on{background:#fff;color:var(--pri);font-weight:600}
+.lock{border:0;background:rgba(255,255,255,.2);color:#fff;border-radius:50%;width:32px;height:32px}
+main{padding:12px;max-width:720px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 8px}
+.alert{border-color:#fecaca;background:#fef2f2}
+.alert h2{color:var(--bad)}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:10px;font-weight:600}
+.t-ok{background:#dcfce7;color:var(--ok)}.t-hi{background:#fee2e2;color:var(--bad)}.t-lim{background:#fef3c7;color:var(--warn)}.t-info{background:var(--pri2);color:var(--pri)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--mut);font-weight:600}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;padding:8px 1px;font-size:10px;color:var(--mut)}
+.drop{border:2px dashed var(--pri);background:var(--pri2);border-radius:12px;padding:22px 10px;text-align:center;color:var(--pri)}
+.drop.over{background:#d3d9f0}
+.cover{width:min(78vw,300px);height:min(78vw,300px);border-radius:18px;border:3px solid var(--gold);box-shadow:0 8px 30px rgba(0,0,0,.45);object-fit:cover}
+.xi{padding:5px;font-size:13px}
+.row.wrap{flex-wrap:wrap}.row.wrap>select{min-width:44%}
+nav button .i{display:block;font-size:20px}
+nav button.on{color:var(--pri);font-weight:600}
+label{display:block;font-size:13px;color:var(--mut);margin:8px 0 3px}
+input,select,textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+input[type=range]{padding:0}
+.btn{border:0;background:var(--pri);color:#fff;padding:9px 14px;border-radius:8px;font:inherit;font-weight:600;margin-top:8px}
+.btn.sec{background:var(--pri2);color:var(--pri)}
+.btn.sm{padding:5px 10px;font-size:13px;margin-top:0}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.mut{color:var(--mut);font-size:13px}
+.bar{height:10px;border-radius:5px;background:var(--pri);margin:2px 0}
+.empty{text-align:center;color:var(--mut);padding:18px 6px}
+#lockscr{position:fixed;inset:0;background:linear-gradient(180deg,#1b2552,#2b3a7a);overflow:auto;color:#fff;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center}
+#lockscr input{max-width:200px;text-align:center;font-size:22px;letter-spacing:6px}
+.hide{display:none!important}
+.sheet{background:#fff;color:#000;border:1px solid #999;padding:16px;border-radius:6px}
+.sheet h3{margin:0 0 4px;font-size:17px}.sheet h4{margin:12px 0 4px;font-size:14px;border-bottom:1px solid #ccc}
+.sheet ul{margin:4px 0;padding-left:18px}
+@media print{header,nav,.noprint,#lockscr{display:none!important}body{background:#fff;padding:0}main{padding:0;max-width:none}.card{border:0;padding:0}.sheet{border:0}}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#1b2552;color:#fff;padding:9px 14px;border-radius:10px;font-size:14px;z-index:30;max-width:88vw;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+
+nav button{position:relative}
+nav .bdg{position:absolute;top:2px;right:calc(50% - 22px);background:#c62828;color:#fff;border-radius:10px;font-size:10px;min-width:16px;height:16px;line-height:16px;padding:0 4px;font-weight:700}
