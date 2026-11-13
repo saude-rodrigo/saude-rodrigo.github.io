@@ -69,6 +69,7 @@ function render(keep){
   var fn={resumo:vResumo,importar:vImportar,exames:vExames,diario:vDiario,agenda:vAgenda,consulta:vConsulta,remedios:vRemedios,google:vGoogle,config:vConfig}[tab];
   v.innerHTML=fn();
   atualizaBadge();
+  if(tab==='agenda'&&window.autoDisp)autoDisp();
   if(!keep)window.scrollTo(0,0);
 }
 
@@ -398,7 +399,7 @@ function addDia(){
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v9 · 13/11/2026';
+var APP_VER='v10 · 13/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+
@@ -432,7 +433,7 @@ function atualizaApp(){
 }
 
 /* ---------- horários livres (lê a agenda do Google: só livre/ocupado) ---------- */
-var dispRes=null,dispBusy=[],dispMsg='';
+var dispRes=null,dispBusy=[],dispMsg='',dispAt=0;
 var DSEM=['dom','seg','ter','qua','qui','sex','sáb'];
 function hm2min(s){var p=String(s||'0:0').split(':');return(parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0)}
 function dtLocal(iso,min){var p=iso.split('-');return new Date(+p[0],+p[1]-1,+p[2],Math.floor(min/60),min%60,0)}
@@ -457,15 +458,17 @@ function blocosDia(iso,busy,d){
   if(cur<b.getTime())out.push([cur,b.getTime()]);
   return out.filter(function(x){return(x[1]-x[0])/60000>=d.dur});
 }
-function calcDisp(){
+function calcDisp(silent){
+  silent=silent===true;
   saveDisp();
-  if(!window.G||!G.connected()){alert('Toque em ☁ e conecte ao Google primeiro.');return}
+  if(!window.G||!G.connected()){if(!silent)alert('Toque em ☁ e conecte ao Google primeiro.');return}
   var d=S.disp;
   if(!d.dias.length){alert('Marque ao menos um dia da semana.');return}
   var ini=new Date();ini.setHours(0,0,0,0);
   var fim=new Date(ini.getTime()+d.qtd*86400000);
   var ids=['primary'];d.cals.split(/[,;\s]+/).forEach(function(c){if(c&&ids.indexOf(c)<0)ids.push(c)});
-  dispMsg='Lendo a agenda…';dispRes=null;render(true);
+  if(!silent){dispMsg='Lendo a agenda…';dispRes=null;refreshDisp()}
+  dispAt=Date.now();
   G.freeBusy(ids,ini.toISOString(),fim.toISOString()).then(function(r){
     dispBusy=r.busy.map(function(x){return{s:new Date(x.s).getTime(),e:new Date(x.e).getTime()}});
     var dias=[];
@@ -478,9 +481,16 @@ function calcDisp(){
     }
     dispRes=dias;
     dispMsg=r.erros.length?'Não consegui ler: '+r.erros.join(', ')+'. Confira se essa agenda foi compartilhada com a conta conectada.':'';
-    render(true);
-  }).catch(function(e){dispMsg='Erro: '+e.message;dispRes=null;render(true)});
+    refreshDisp();
+  }).catch(function(e){dispMsg='Erro: '+e.message;if(!silent)dispRes=null;dispAt=0;refreshDisp()});
 }
+function autoDisp(){
+  if(tab!=='agenda'||document.hidden||!window.G||!G.connected())return;
+  if(Date.now()-dispAt<120000)return;
+  calcDisp(true);
+}
+setInterval(function(){autoDisp()},180000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)autoDisp()});
 function usaHorario(iso,min){
   var h=pad(Math.floor(min/60))+':'+pad(min%60);
   var d=document.getElementById('ad'),t=document.getElementById('ah');
@@ -502,9 +512,11 @@ function dispConfigHtml(){
   '<div class="row"><div><label>Duração mínima (min)</label><input id="dp_dur" type="number" min="15" step="15" value="'+d.dur+'" onchange="saveDisp()"></div><div><label>Olhar quantos dias</label><input id="dp_qtd" type="number" min="1" max="60" value="'+d.qtd+'" onchange="saveDisp()"></div></div>'+
   '<label>Outras agendas a considerar (e-mails, separados por vírgula)</label><input id="dp_cals" value="'+esc(d.cals)+'" placeholder="Opcional" onchange="saveDisp()">';
 }
-function dispHtml(){
+function dispHtml(){return'<div class="card" id="dispbox">'+dispInner()+'</div>'}
+function refreshDisp(){var e=document.getElementById('dispbox');if(e)e.innerHTML=dispInner()}
+function dispInner(){
   var d=S.disp;
-  var h='<div class="card"><h2>🕒 Meus horários livres</h2>'+
+  var h='<h2>🕒 Meus horários livres</h2>'+
   '<p class="mut">Lê só o "livre/ocupado" da sua agenda do Google (sem títulos nem nomes) e mostra os horários vagos para marcar médicos e exames.</p>'+
   '<p class="mut" style="margin:0 0 6px">Dias e horário de trabalho: <b>'+d.dias.map(function(i){return DSEM[i]}).join(', ')+'</b>, das '+d.ini+' às '+d.fim+', mínimo de '+d.dur+' min. <a href="#" onclick="goTab(\'config\');return false">Ajustar em ⚙ Configurações</a></p>'+
   (window.G&&G.connected()?'<button class="btn" style="width:100%;margin:8px 0" onclick="calcDisp()">Ver meus horários livres</button>':'<div class="empty">Conecte ao Google (☁) para ver seus horários.</div>');
@@ -522,7 +534,8 @@ function dispHtml(){
     });
     h+='<p class="mut">Toque num horário para colocá-lo no "Novo compromisso" logo abaixo.</p>';
   }
-  return h+'</div>';
+  if(dispAt)h+='<p class="mut">Atualizado às '+hhmm(new Date(dispAt))+'. Atualiza sozinho ao abrir esta aba e a cada poucos minutos.</p>';
+  return h;
 }
 
 /* ---------- Agenda ---------- */
