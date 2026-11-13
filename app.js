@@ -66,7 +66,7 @@ document.getElementById('seg').addEventListener('click',function(e){
 });
 function render(keep){
   var v=document.getElementById('view');
-  var fn={resumo:vResumo,importar:vImportar,exames:vExames,diario:vDiario,agenda:vAgenda,consulta:vConsulta,remedios:vRemedios,google:vGoogle}[tab];
+  var fn={resumo:vResumo,importar:vImportar,exames:vExames,diario:vDiario,agenda:vAgenda,consulta:vConsulta,remedios:vRemedios,google:vGoogle,config:vConfig}[tab];
   v.innerHTML=fn();
   atualizaBadge();
   if(!keep)window.scrollTo(0,0);
@@ -396,6 +396,41 @@ function addDia(){
 }
 
 
+
+/* ---------- configurações ---------- */
+var APP_VER='v9 · 13/11/2026';
+function vConfig(){
+  var conn=window.G&&G.configured()&&G.connected();
+  var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+
+  '<button class="btn sec" style="margin-top:8px" onclick="atualizaApp()">🔄 Atualizar o app agora</button>'+
+  '<p class="mut">Use se uma novidade não aparecer. Seus dados não são apagados.</p></div>';
+  h+='<div class="card"><h2>☁ Conta Google</h2>'+
+  '<p class="mut" style="margin:0 0 8px">'+(!window.G||!G.configured()?'App ainda não ligado ao Google.':conn?'Conectado (a sessão dura cerca de 1 hora).':'Não conectado.')+'</p>'+
+  (conn?'<button class="btn sec sm" onclick="gaDisconnect();render(true)">Desconectar</button> ':(window.G&&G.configured()?'<button class="btn" onclick="gaConnect()">Conectar ao Google</button> ':''))+
+  '<button class="btn sec sm" onclick="goTab(\'google\')">Drive e sincronização</button><p id="gmsg" class="mut"></p></div>';
+  h+='<div class="card"><h2>🕒 Agenda e horários livres</h2>'+dispConfigHtml()+
+  '<p class="mut">As alterações são salvas na hora. Para ver os horários, vá em Agenda.</p></div>';
+  h+='<div class="card"><h2>🔔 Avisos</h2>'+avisoBtnHtml()+
+  '<p class="mut">Avisos de remédio acabando e lembretes aparecem neste aparelho quando você abre o app.</p></div>';
+  h+='<div class="card"><h2>🔒 Segurança</h2><div class="row"><button class="btn sec" onclick="trocaPin()">Trocar PIN</button><button class="btn sec" onclick="lockNow()">Bloquear agora</button></div></div>';
+  h+='<div class="card"><h2>💾 Backup</h2><div class="row"><button class="btn sec" onclick="exportBackup()">⬇️ Salvar backup</button>'+
+  '<label class="btn sec" style="margin:8px 0 0;text-align:center">⬆️ Restaurar<input type="file" accept="application/json,.json" hidden onchange="importBackup(this.files[0])"></label></div>'+
+  '<p class="mut">O backup contém dados de saúde: guarde em local seguro.</p></div>';
+  return h;
+}
+function trocaPin(){
+  var a=prompt('Digite o PIN atual');if(a===null)return;
+  if(a!==S.pin){alert('PIN incorreto.');return}
+  var n=prompt('Novo PIN (4 a 6 números)');if(n===null)return;
+  if(!/^\d{4,6}$/.test(n)){alert('Use de 4 a 6 números.');return}
+  S.pin=n;save();toast('PIN alterado.');
+}
+function atualizaApp(){
+  var fim=function(){location.reload()};
+  var t1=navigator.serviceWorker?navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}):Promise.resolve();
+  t1.then(function(){return window.caches?caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}):0}).then(fim,fim);
+}
+
 /* ---------- horários livres (lê a agenda do Google: só livre/ocupado) ---------- */
 var dispRes=null,dispBusy=[],dispMsg='';
 var DSEM=['dom','seg','ter','qua','qui','sex','sáb'];
@@ -403,6 +438,7 @@ function hm2min(s){var p=String(s||'0:0').split(':');return(parseInt(p[0],10)||0
 function dtLocal(iso,min){var p=iso.split('-');return new Date(+p[0],+p[1]-1,+p[2],Math.floor(min/60),min%60,0)}
 function hhmm(d){return pad(d.getHours())+':'+pad(d.getMinutes())}
 function saveDisp(){
+  if(!document.getElementById('dp_ini'))return;
   var d=S.disp,g=function(i){var e=document.getElementById(i);return e?e.value.trim():''};
   var dias=[];for(var i=0;i<7;i++){var c=document.getElementById('dp_d'+i);if(c&&c.checked)dias.push(i)}
   d.dias=dias;d.ini=g('dp_ini')||'08:00';d.fim=g('dp_fim')||'18:00';
@@ -457,16 +493,20 @@ function conflito(iso,h){
   var a=dtLocal(iso,hm2min(h)).getTime(),b=a+3600000;
   return dispBusy.some(function(x){return x.e>a&&x.s<b})?'ATENÇÃO: esse horário parece ocupado na sua agenda.\n\n':'';
 }
+
+function dispConfigHtml(){
+  var d=S.disp;
+  return''+
+'<label>Dias que posso marcar</label><div>'+DSEM.map(function(n,i){return'<label style="display:inline-block;margin-right:10px"><input type="checkbox" id="dp_d'+i+'" style="width:auto" '+(d.dias.indexOf(i)>-1?'checked':'')+' onchange="saveDisp()"> '+n+'</label>'}).join('')+'</div>'+
+  '<div class="row"><div><label>Das</label><input id="dp_ini" type="time" value="'+d.ini+'" onchange="saveDisp()"></div><div><label>Até</label><input id="dp_fim" type="time" value="'+d.fim+'" onchange="saveDisp()"></div></div>'+
+  '<div class="row"><div><label>Duração mínima (min)</label><input id="dp_dur" type="number" min="15" step="15" value="'+d.dur+'" onchange="saveDisp()"></div><div><label>Olhar quantos dias</label><input id="dp_qtd" type="number" min="1" max="60" value="'+d.qtd+'" onchange="saveDisp()"></div></div>'+
+  '<label>Outras agendas a considerar (e-mails, separados por vírgula)</label><input id="dp_cals" value="'+esc(d.cals)+'" placeholder="Opcional" onchange="saveDisp()">';
+}
 function dispHtml(){
   var d=S.disp;
   var h='<div class="card"><h2>🕒 Meus horários livres</h2>'+
   '<p class="mut">Lê só o "livre/ocupado" da sua agenda do Google (sem títulos nem nomes) e mostra os horários vagos para marcar médicos e exames.</p>'+
-  '<details><summary class="mut" style="cursor:pointer;margin-bottom:6px">Ajustar horário de trabalho e dias</summary>'+
-  '<label>Dias que posso marcar</label><div>'+DSEM.map(function(n,i){return'<label style="display:inline-block;margin-right:10px"><input type="checkbox" id="dp_d'+i+'" style="width:auto" '+(d.dias.indexOf(i)>-1?'checked':'')+' onchange="saveDisp()"> '+n+'</label>'}).join('')+'</div>'+
-  '<div class="row"><div><label>Das</label><input id="dp_ini" type="time" value="'+d.ini+'" onchange="saveDisp()"></div><div><label>Até</label><input id="dp_fim" type="time" value="'+d.fim+'" onchange="saveDisp()"></div></div>'+
-  '<div class="row"><div><label>Duração mínima (min)</label><input id="dp_dur" type="number" min="15" step="15" value="'+d.dur+'" onchange="saveDisp()"></div><div><label>Olhar quantos dias</label><input id="dp_qtd" type="number" min="1" max="60" value="'+d.qtd+'" onchange="saveDisp()"></div></div>'+
-  '<label>Outras agendas a considerar (e-mails, separados por vírgula)</label><input id="dp_cals" value="'+esc(d.cals)+'" placeholder="Opcional" onchange="saveDisp()">'+
-  '</details>'+
+  '<p class="mut" style="margin:0 0 6px">Dias e horário de trabalho: <b>'+d.dias.map(function(i){return DSEM[i]}).join(', ')+'</b>, das '+d.ini+' às '+d.fim+', mínimo de '+d.dur+' min. <a href="#" onclick="goTab(\'config\');return false">Ajustar em ⚙ Configurações</a></p>'+
   (window.G&&G.connected()?'<button class="btn" style="width:100%;margin:8px 0" onclick="calcDisp()">Ver meus horários livres</button>':'<div class="empty">Conecte ao Google (☁) para ver seus horários.</div>');
   if(dispMsg)h+='<p class="mut">'+esc(dispMsg)+'</p>';
   if(dispRes){
@@ -1068,4 +1108,8 @@ document.querySelectorAll('#seg button').forEach(function(b){b.classList.toggle(
 showLock();
 render();
 setTimeout(autoSync,1200);
-if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0)navigator.serviceWorker.register('sw.js').catch(function(){});
+if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){
+  var jaTinha=!!navigator.serviceWorker.controller,recarregou=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){if(jaTinha&&!recarregou){recarregou=true;toast('Versão nova instalada. Reabrindo…');setTimeout(function(){location.reload()},900)}});
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}

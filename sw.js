@@ -1,6 +1,6 @@
 // Service worker: deixa o app abrir sem internet.
 // Só guarda os arquivos do próprio app. Nada de dados de saúde passa por aqui.
-var CACHE = 'saude-a-dois-v8';
+var CACHE = 'saude-a-dois-v9';
 var ARQUIVOS = [
   './', 'index.html', 'style.css', 'app.js', 'google.js', 'config.js',
   'manifest.webmanifest', 'pdf.min.js', 'pdf.worker.min.js',
@@ -8,7 +8,7 @@ var ARQUIVOS = [
 ];
 
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ARQUIVOS); }));
+  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ARQUIVOS.map(function (u) { return new Request(u, { cache: 'reload' }); })); }));
   self.skipWaiting();
 });
 
