@@ -14,6 +14,8 @@ var S=load()||seed();
   if(!S.profiles.familia)S.profiles.familia={nome:'Família',bio:[],exames:[],pend:[],meds:[],diario:[],agenda:[],docs:[],lembretes:[]};
   if(!S.profiles.familia.lembretes)S.profiles.familia.lembretes=[];
   if(!S.sync)S.sync={};
+  var D={dias:[1,2,3,4,5],ini:'08:00',fim:'18:00',dur:60,qtd:14,cals:''};
+  if(!S.disp)S.disp=D;else for(var k in D)if(S.disp[k]==null)S.disp[k]=D[k];
 })();
 
 function P(){var p=S.profiles[S.cur];if(!p.docs)p.docs=[];return p}
@@ -393,10 +395,100 @@ function addDia(){
   if(grave)alert('Atenção: esses sinais podem exigir avaliação urgente. Procure um pronto atendimento.');
 }
 
+
+/* ---------- horários livres (lê a agenda do Google: só livre/ocupado) ---------- */
+var dispRes=null,dispBusy=[],dispMsg='';
+var DSEM=['dom','seg','ter','qua','qui','sex','sáb'];
+function hm2min(s){var p=String(s||'0:0').split(':');return(parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0)}
+function dtLocal(iso,min){var p=iso.split('-');return new Date(+p[0],+p[1]-1,+p[2],Math.floor(min/60),min%60,0)}
+function hhmm(d){return pad(d.getHours())+':'+pad(d.getMinutes())}
+function saveDisp(){
+  var d=S.disp,g=function(i){var e=document.getElementById(i);return e?e.value.trim():''};
+  var dias=[];for(var i=0;i<7;i++){var c=document.getElementById('dp_d'+i);if(c&&c.checked)dias.push(i)}
+  d.dias=dias;d.ini=g('dp_ini')||'08:00';d.fim=g('dp_fim')||'18:00';
+  d.dur=Math.max(15,parseInt(g('dp_dur'),10)||60);d.qtd=Math.min(60,Math.max(1,parseInt(g('dp_qtd'),10)||14));
+  d.cals=g('dp_cals');persist();
+}
+/* blocos livres de um dia: janela [ini,fim] menos os ocupados, com pelo menos "dur" minutos */
+function blocosDia(iso,busy,d){
+  var ini=hm2min(d.ini),fim=hm2min(d.fim),agora=new Date();
+  var a=dtLocal(iso,ini),b=dtLocal(iso,fim);
+  if(iso===isoHoje()){var m=Math.ceil((agora.getHours()*60+agora.getMinutes())/30)*30;if(m>ini)a=dtLocal(iso,m)}
+  if(b<=a)return[];
+  var oc=busy.filter(function(x){return x.e>a&&x.s<b}).map(function(x){return{s:Math.max(x.s,a),e:Math.min(x.e,b)}}).sort(function(x,y){return x.s-y.s});
+  var out=[],cur=a.getTime();
+  oc.forEach(function(x){if(x.s>cur)out.push([cur,x.s]);cur=Math.max(cur,x.e)});
+  if(cur<b.getTime())out.push([cur,b.getTime()]);
+  return out.filter(function(x){return(x[1]-x[0])/60000>=d.dur});
+}
+function calcDisp(){
+  saveDisp();
+  if(!window.G||!G.connected()){alert('Toque em ☁ e conecte ao Google primeiro.');return}
+  var d=S.disp;
+  if(!d.dias.length){alert('Marque ao menos um dia da semana.');return}
+  var ini=new Date();ini.setHours(0,0,0,0);
+  var fim=new Date(ini.getTime()+d.qtd*86400000);
+  var ids=['primary'];d.cals.split(/[,;\s]+/).forEach(function(c){if(c&&ids.indexOf(c)<0)ids.push(c)});
+  dispMsg='Lendo a agenda…';dispRes=null;render(true);
+  G.freeBusy(ids,ini.toISOString(),fim.toISOString()).then(function(r){
+    dispBusy=r.busy.map(function(x){return{s:new Date(x.s).getTime(),e:new Date(x.e).getTime()}});
+    var dias=[];
+    for(var i=0;i<d.qtd;i++){
+      var dt=new Date(ini.getTime()+i*86400000+43200000);
+      var iso=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
+      if(d.dias.indexOf(dt.getDay())<0)continue;
+      var bl=blocosDia(iso,dispBusy,d);
+      dias.push({iso:iso,sem:DSEM[dt.getDay()],blocos:bl});
+    }
+    dispRes=dias;
+    dispMsg=r.erros.length?'Não consegui ler: '+r.erros.join(', ')+'. Confira se essa agenda foi compartilhada com a conta conectada.':'';
+    render(true);
+  }).catch(function(e){dispMsg='Erro: '+e.message;dispRes=null;render(true)});
+}
+function usaHorario(iso,min){
+  var h=pad(Math.floor(min/60))+':'+pad(min%60);
+  var d=document.getElementById('ad'),t=document.getElementById('ah');
+  if(d)d.value=iso;if(t)t.value=h;
+  var f=document.getElementById('at');if(f){f.focus();f.scrollIntoView({behavior:'smooth',block:'center'})}
+  toast('Horário '+fmtDate(iso)+' às '+h+' colocado no compromisso.');
+}
+function conflito(iso,h){
+  if(!dispBusy.length)return'';
+  var a=dtLocal(iso,hm2min(h)).getTime(),b=a+3600000;
+  return dispBusy.some(function(x){return x.e>a&&x.s<b})?'ATENÇÃO: esse horário parece ocupado na sua agenda.\n\n':'';
+}
+function dispHtml(){
+  var d=S.disp;
+  var h='<div class="card"><h2>🕒 Meus horários livres</h2>'+
+  '<p class="mut">Lê só o "livre/ocupado" da sua agenda do Google (sem títulos nem nomes) e mostra os horários vagos para marcar médicos e exames.</p>'+
+  '<details><summary class="mut" style="cursor:pointer;margin-bottom:6px">Ajustar horário de trabalho e dias</summary>'+
+  '<label>Dias que posso marcar</label><div>'+DSEM.map(function(n,i){return'<label style="display:inline-block;margin-right:10px"><input type="checkbox" id="dp_d'+i+'" style="width:auto" '+(d.dias.indexOf(i)>-1?'checked':'')+' onchange="saveDisp()"> '+n+'</label>'}).join('')+'</div>'+
+  '<div class="row"><div><label>Das</label><input id="dp_ini" type="time" value="'+d.ini+'" onchange="saveDisp()"></div><div><label>Até</label><input id="dp_fim" type="time" value="'+d.fim+'" onchange="saveDisp()"></div></div>'+
+  '<div class="row"><div><label>Duração mínima (min)</label><input id="dp_dur" type="number" min="15" step="15" value="'+d.dur+'" onchange="saveDisp()"></div><div><label>Olhar quantos dias</label><input id="dp_qtd" type="number" min="1" max="60" value="'+d.qtd+'" onchange="saveDisp()"></div></div>'+
+  '<label>Outras agendas a considerar (e-mails, separados por vírgula)</label><input id="dp_cals" value="'+esc(d.cals)+'" placeholder="Opcional" onchange="saveDisp()">'+
+  '</details>'+
+  (window.G&&G.connected()?'<button class="btn" style="width:100%;margin:8px 0" onclick="calcDisp()">Ver meus horários livres</button>':'<div class="empty">Conecte ao Google (☁) para ver seus horários.</div>');
+  if(dispMsg)h+='<p class="mut">'+esc(dispMsg)+'</p>';
+  if(dispRes){
+    if(!dispRes.length)h+='<div class="empty">Nenhum dia nos dias marcados.</div>';
+    dispRes.forEach(function(x){
+      h+='<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+x.sem+' '+fmtDate(x.iso).slice(0,5)+'</b> ';
+      if(!x.blocos.length)h+='<span class="mut">sem horário livre</span>';
+      x.blocos.forEach(function(b){
+        var s=new Date(b[0]),e=new Date(b[1]);
+        h+='<button class="btn sm sec" style="margin:2px 4px 2px 0" onclick="usaHorario(\''+x.iso+'\','+(s.getHours()*60+s.getMinutes())+')">'+hhmm(s)+'–'+hhmm(e)+'</button>';
+      });
+      h+='</div>';
+    });
+    h+='<p class="mut">Toque num horário para colocá-lo no "Novo compromisso" logo abaixo.</p>';
+  }
+  return h+'</div>';
+}
+
 /* ---------- Agenda ---------- */
 function vAgenda(){
   var p=P();
-  var h='<div class="card"><h2>Novo compromisso</h2>'+
+  var h=dispHtml()+'<div class="card"><h2>Novo compromisso</h2>'+
   '<label>Título</label><input id="at" placeholder="Ex.: Consulta com coloproctologista">'+
   '<div class="row"><div><label>Data</label><input id="ad" type="date"></div><div><label>Hora</label><input id="ah" type="time" value="08:00"></div></div>'+
   '<label>Local</label><input id="al"><label>Preparo / notas</label><textarea id="ap" rows="2" placeholder="Jejum de 8–12 h, levar pedido…"></textarea>'+
@@ -421,7 +513,7 @@ function addAg(kind){
   var a={t:val('at'),d:val('ad'),h:val('ah')||'08:00',l:val('al'),p:val('ap')};
   if(!a.t||!a.d){alert('Preencha título e data.');return}
   if(kind==='c'){
-    if(!confirm('Criar na agenda'+agendaNome(true)+'?\n\n'+a.t+'\n'+fmtDate(a.d)+' às '+a.h+(a.l?'\n'+a.l:'')+'\nAlertas: 1 dia e 1 hora antes.'))return;
+    if(!confirm(conflito(a.d,a.h)+'Criar na agenda'+agendaNome(true)+'?\n\n'+a.t+'\n'+fmtDate(a.d)+' às '+a.h+(a.l?'\n'+a.l:'')+'\nAlertas: 1 dia e 1 hora antes.'))return;
     G.createEvent(a,S.cur).then(function(id){a.gid=id;P().agenda.push(a);save();render(true);toast('Criado na agenda Saúde.')})
       .catch(function(e){alert(e.message)});
     return;

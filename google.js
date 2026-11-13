@@ -9,7 +9,7 @@
   var CFG = window.APP_CONFIG || {};
   /* Se CALENDAR_ID estiver preenchido (agenda da família), o app grava eventos nela e precisa da permissão calendar.events.
      Sem CALENDAR_ID, usa só a agenda própria “Saúde” (calendar.app.created). */
-  var SCOPES = 'https://www.googleapis.com/auth/drive.file ' + (CFG.CALENDAR_ID ? 'https://www.googleapis.com/auth/calendar.events' : 'https://www.googleapis.com/auth/calendar.app.created');
+  var SCOPES = 'https://www.googleapis.com/auth/drive.file ' + (CFG.CALENDAR_ID ? 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy' : 'https://www.googleapis.com/auth/calendar.app.created');
   var token = null, tokenExp = 0;
   var ROOT = CFG.ROOT_FOLDER || 'Saúde a Dois';
   var TZ = CFG.TIMEZONE || 'America/Sao_Paulo';
@@ -281,9 +281,27 @@
     });
   }
 
+  /* Horários ocupados (só livre/ocupado, sem títulos nem nomes) das agendas pedidas. */
+  function freeBusy(ids, tmin, tmax) {
+    return need().then(function () {
+      return api('https://www.googleapis.com/calendar/v3/freeBusy', {
+        method: 'POST',
+        json: { timeMin: tmin, timeMax: tmax, timeZone: TZ, items: ids.map(function (i) { return { id: i }; }) }
+      });
+    }).then(function (r) {
+      var busy = [], erros = [];
+      var cs = r.calendars || {};
+      Object.keys(cs).forEach(function (k) {
+        if (cs[k].errors && cs[k].errors.length) erros.push(k);
+        (cs[k].busy || []).forEach(function (b) { busy.push({ s: b.start, e: b.end }); });
+      });
+      return { busy: busy, erros: erros };
+    });
+  }
+
   window.G = {
     configured: configured, connected: connected, connect: connect, silent: silent, disconnect: disconnect,
     uploadOriginal: uploadOriginal, syncSheets: syncSheets, push: push, pull: pull, share: share,
-    createEvent: createEvent, deleteEvent: deleteEvent, limparCache: limparCache
+    createEvent: createEvent, deleteEvent: deleteEvent, freeBusy: freeBusy, limparCache: limparCache
   };
 })();
