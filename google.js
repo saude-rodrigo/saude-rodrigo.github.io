@@ -9,7 +9,7 @@
   var CFG = window.APP_CONFIG || {};
   /* Se CALENDAR_ID estiver preenchido (agenda da família), o app grava eventos nela e precisa da permissão calendar.events.
      Sem CALENDAR_ID, usa só a agenda própria “Saúde” (calendar.app.created). */
-  var SCOPES = 'https://www.googleapis.com/auth/drive.file ' + (CFG.CALENDAR_ID ? 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy' : 'https://www.googleapis.com/auth/calendar.app.created');
+  var SCOPES = 'https://www.googleapis.com/auth/drive.file ' + (CFG.CALENDAR_ID ? 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/calendar.calendarlist.readonly' : 'https://www.googleapis.com/auth/calendar.app.created');
   var token = null, tokenExp = 0;
   var ROOT = CFG.ROOT_FOLDER || 'Saúde a Dois';
   var TZ = CFG.TIMEZONE || 'America/Sao_Paulo';
@@ -299,9 +299,44 @@
     });
   }
 
+  /* Lista as agendas da conta (as próprias e as compartilhadas/assinadas). */
+  function listCalendars() {
+    return need().then(function () {
+      return api('https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader&maxResults=100');
+    }).then(function (r) {
+      return (r.items || []).map(function (c) {
+        return { id: c.id, nome: c.summaryOverride || c.summary || c.id, primary: !!c.primary, selected: !!c.selected };
+      });
+    });
+  }
+  /* Compromissos das agendas escolhidas (só horários; o título só vem se o app pedir). */
+  function listBusy(ids, tmin, tmax, op) {
+    op = op || {};
+    var busy = [], erros = [], total = 0;
+    function um(id, token, pg) {
+      var u = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(id) + '/events?singleEvents=true&orderBy=startTime&maxResults=250' +
+        '&timeMin=' + encodeURIComponent(tmin) + '&timeMax=' + encodeURIComponent(tmax) + (token ? '&pageToken=' + encodeURIComponent(token) : '');
+      return api(u).then(function (r) {
+        (r.items || []).forEach(function (ev) {
+          if (ev.status === 'cancelled') return;
+          if (!ev.start || !ev.start.dateTime) return;            // dia inteiro (feriado, aniversário): não bloqueia
+          if (ev.transparency === 'transparent' && !op.livre) return;
+          var eu = (ev.attendees || []).filter(function (a) { return a.self; })[0];
+          if (eu && eu.responseStatus === 'declined') return;
+          total++;
+          busy.push({ s: ev.start.dateTime, e: ev.end.dateTime, t: op.titulos ? (ev.summary || '') : '' });
+        });
+        if (r.nextPageToken && pg < 4) return um(id, r.nextPageToken, pg + 1);
+      });
+    }
+    return need().then(function () {
+      return Promise.all(ids.map(function (id) { return um(id, null, 0).catch(function () { erros.push(id); }); }));
+    }).then(function () { return { busy: busy, erros: erros, total: total, agendas: ids.length }; });
+  }
+
   window.G = {
     configured: configured, connected: connected, connect: connect, silent: silent, disconnect: disconnect,
     uploadOriginal: uploadOriginal, syncSheets: syncSheets, push: push, pull: pull, share: share,
-    createEvent: createEvent, deleteEvent: deleteEvent, freeBusy: freeBusy, limparCache: limparCache
+    createEvent: createEvent, deleteEvent: deleteEvent, freeBusy: freeBusy, listCalendars: listCalendars, listBusy: listBusy, limparCache: limparCache
   };
 })();
