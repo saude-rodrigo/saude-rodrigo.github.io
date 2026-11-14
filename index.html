@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#2b3a7a">
+<meta name="theme-color" content="#04241b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Saúde a Dois">
 <title>Saúde a Dois</title>
@@ -16,36 +16,44 @@
 <div id="lockscr">
   <img class="cover" alt="Capa do aplicativo" src="capa.jpg">
   <h2 id="lockt" style="margin:0">Saúde a Dois</h2>
-  <div id="locks" class="mut" style="color:#dfe3f5"></div>
+  <div id="locks" class="mut" ></div>
   <input id="pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off">
-  <button class="btn" style="background:#fff;color:var(--pri)" onclick="unlock()">Entrar</button>
-  <div class="mut" style="color:#dfe3f5;max-width:300px">Protótipo: o PIN fica só neste aparelho e não é segurança real. A versão final usaria criptografia e biometria.</div>
+  <button class="btn"  onclick="unlock()">Entrar</button>
+  <div class="mut" style="max-width:300px">Protótipo: o PIN fica só neste aparelho e não é segurança real. A versão final usaria criptografia e biometria.</div>
 </div>
 
 <header>
-  <img class="logo" alt="" src="icon-192.png">
-  <h1>Saúde a Dois</h1>
-  <div class="seg" id="seg">
-    <button data-p="douglas" class="on">Douglas</button>
-    <button data-p="rodrigo">Rodrigo</button>
+  <div class="hbar">
+    <button class="menu" onclick="abreMenu()" aria-label="Menu" id="bmenu"></button>
+    <img class="mark" alt="Saúde a Dois" src="no.png">
+    <div class="brand"><img alt="" src="impacto.png"></div>
   </div>
-  <button class="lock" onclick="goTab('config')" aria-label="Configurações" title="Configurações">⚙</button>
-  <button class="lock" onclick="goTab('google')" aria-label="Google" title="Google">☁</button>
-  <button class="lock" onclick="lockNow()" aria-label="Bloquear">🔒</button>
+  <div class="htit"><h1>Saúde a Dois</h1><div class="sub">Acompanhamento de Saúde e Bem-Estar</div></div>
+  <div class="hrow">
+    <div class="seg" id="seg">
+      <button data-p="douglas" class="on"><span class="u"></span>Douglas</button>
+      <button data-p="rodrigo"><span class="u"></span>Rodrigo</button>
+    </div>
+    <button class="lock" id="bgear" onclick="goTab('config')" aria-label="Configurações" title="Configurações"></button>
+    <button class="lock" id="bcloud" onclick="goTab('google')" aria-label="Google" title="Google"></button>
+    <button class="lock" id="block" onclick="lockNow()" aria-label="Bloquear"></button>
+  </div>
 </header>
+<div id="menu" class="hide" onclick="fechaMenu()"><div class="pn" onclick="event.stopPropagation()"></div></div>
 
 <main id="view"></main>
 
 <nav id="nav">
-  <button data-t="resumo" class="on"><span class="i">🏠</span>Resumo</button>
-  <button data-t="exames"><span class="i">🧪</span>Exames</button>
-  <button data-t="importar"><span class="i">📄</span>Importar</button>
-  <button data-t="diario"><span class="i">📓</span>Diário</button>
-  <button data-t="agenda"><span class="i">📅</span>Agenda</button>
-  <button data-t="consulta"><span class="i">🩺</span>Consulta</button>
-  <button data-t="remedios"><span class="i">💊</span>Em uso</button>
+  <button data-t="resumo" class="on"><span class="i" data-ic="home"></span>Resumo</button>
+  <button data-t="exames"><span class="i" data-ic="flask"></span>Exames</button>
+  <button data-t="importar"><span class="i" data-ic="doc"></span>Importar</button>
+  <button data-t="diario"><span class="i" data-ic="book"></span>Diário</button>
+  <button data-t="agenda"><span class="i" data-ic="cal"></span>Agenda</button>
+  <button data-t="consulta"><span class="i" data-ic="steth"></span>Consulta</button>
+  <button data-t="remedios"><span class="i" data-ic="pill"></span>Em uso</button>
 </nav>
 
+<script src="icons.js"></script>
 <script src="config.js"></script>
 <script src="pdf.min.js"></script>
 <script src="google.js"></script>

@@ -64,6 +64,19 @@ document.getElementById('seg').addEventListener('click',function(e){
   [].forEach.call(this.children,function(x){x.classList.toggle('on',x===b)});
   render();
 });
+function pintaIcones(){
+  [].forEach.call(document.querySelectorAll('[data-ic]'),function(e){e.innerHTML=IC[e.dataset.ic]});
+  [].forEach.call(document.querySelectorAll('#seg .u'),function(e){e.innerHTML=IC.user});
+  var m={bmenu:'menu',bgear:'gear',bcloud:'cloud',block:'lock'};
+  Object.keys(m).forEach(function(k){var e=document.getElementById(k);if(e)e.innerHTML=IC[m[k]]});
+}
+function abreMenu(){
+  var it=[['resumo','home','Resumo'],['diario','book','Diário de Saúde'],['exames','flask','Exames'],['importar','doc','Importar PDF'],['agenda','cal','Agenda'],['consulta','steth','Consulta'],['remedios','pill','Medicamentos'],['config','gear','Configurações'],['google','cloud','Google']];
+  var pn=document.querySelector('#menu .pn');
+  pn.innerHTML=it.map(function(x){return'<button onclick="fechaMenu();goTab(\''+x[0]+'\')">'+IC[x[1]]+x[2]+'</button>'}).join('');
+  document.getElementById('menu').classList.remove('hide');
+}
+function fechaMenu(){document.getElementById('menu').classList.add('hide')}
 function render(keep){
   var v=document.getElementById('view');
   var fn={resumo:vResumo,importar:vImportar,exames:vExames,diario:vDiario,agenda:vAgenda,consulta:vConsulta,remedios:vRemedios,google:vGoogle,config:vConfig}[tab];
@@ -238,14 +251,50 @@ function trendTxt(bio){
   if(pb>pa)return'<p class="mut" style="margin:4px 0 0">O peso subiu '+dif+' kg entre '+a.d+' e '+b.d+'. Vale levar ao médico ou ao endocrinologista.</p>';
   return'<p class="mut" style="margin:4px 0 0">O peso caiu '+dif+' kg entre '+a.d+' e '+b.d+'.</p>';
 }
+function qkHtml(){
+  var q=[['diario','book','Diário de<br>Saúde'],['exames','flask','Exames'],['consulta','steth','Consultas'],['agenda','cal','Agenda'],['remedios','pill','Medicamentos']];
+  return'<div class="qk">'+q.map(function(x){return'<button onclick="goTab(\''+x[0]+'\')">'+IC[x[1]]+'<span>'+x[2]+'</span></button>'}).join('')+'</div>';
+}
+var MES=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+function resumoCards(p){
+  var h='',hoje=isoHoje();
+  var d=p.diario.length?p.diario[p.diario.length-1]:null;
+  h+='<div class="card hoje"><h2>Como você está hoje?</h2><div class="mut">'+(d?'Último registro: '+esc(d.d):'Registre seus sintomas e como se sente.')+'</div>'+
+     '<button class="btn" onclick="goTab(\'diario\')">＋ Novo registro</button><span class="leaf">🌿</span></div>';
+  var L=F().lembretes||[],pend=L.filter(function(x){return!x.feito});
+  h+='<div class="g2"><div class="card"><h2>Lembretes <span class="cnt">'+pend.length+'</span></h2>';
+  if(!pend.length)h+='<div class="mut">Nenhum pendente.</div>';
+  pend.slice(0,3).forEach(function(x){h+='<div class="lit"><i></i><span>'+esc(x.t)+(x.d?' <span class="mut">'+isoBr(x.d).slice(0,5)+'</span>':'')+'</span></div>'});
+  h+='<a class="lk" href="#" onclick="goTab(\'agenda\');return false">Ver todos ›</a></div>';
+  var ag=p.agenda.filter(function(x){return x.d>=hoje}).sort(function(a,b){return(a.d+(a.h||'')).localeCompare(b.d+(b.h||''))});
+  h+='<div class="card"><h2>Próximas consultas</h2>';
+  if(!ag.length)h+='<div class="mut">Nada marcado.</div>';
+  ag.slice(0,2).forEach(function(x){
+    var dd=x.d.split('-');
+    h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><div class="dia"><b>'+dd[2]+'</b><span>'+MES[+dd[1]-1]+'</span></div><div style="font-size:13px"><b>'+esc(x.t)+'</b><div class="mut">'+esc(x.h||'')+(x.l?' · '+esc(x.l):'')+'</div></div></div>';
+  });
+  h+='<a class="lk" href="#" onclick="goTab(\'agenda\');return false">Ver agenda completa ›</a></div></div>';
+  var ult={};p.exames.forEach(function(e){var o=ult[e.n];if(!o||dkey(e.d)>=dkey(o.d))ult[e.n]=e});
+  var ks=Object.keys(ult).map(function(k){return ult[k]}).sort(function(a,b){return dkey(b.d).localeCompare(dkey(a.d))});
+  h+='<div class="g2"><div class="card"><h2>Exames e resultados</h2>';
+  if(!ks.length)h+='<div class="mut">Nenhum exame ainda.</div>';
+  else{var e0=ks[0];h+='<div class="mut">Último exame</div><div><b>'+esc(e0.n)+'</b></div><div class="mut">'+esc(e0.d)+'</div><div style="margin-top:4px"><span class="tag '+flag(e0)[1]+'">'+esc(e0.v)+' '+esc(e0.u)+'</span></div>'}
+  h+='<a class="lk" href="#" onclick="goTab(\'exames\');return false">Ver todos os exames ›</a></div>';
+  h+='<div class="card"><h2>Acompanhamento de sintomas</h2>';
+  if(!d)h+='<div class="mut">Sem registros no Diário.</div>';
+  else[['Dor',d.dor],['Rigidez',d.rig],['Fadiga',d.fad],['Falta de ar',d.res]].forEach(function(r){var n=+r[1]||0;h+='<div class="sx"><span>'+r[0]+'</span><div class="bt"><i style="width:'+n*10+'%"></i></div><b>'+n+'/10</b></div>'});
+  h+='</div></div>';
+  return h;
+}
 function vResumo(){
-  var p=P(),h=alertaHtml()+lembHtml();
+  var p=P(),h=qkHtml()+alertaHtml();
   if(syncTxt)h+='<p class="mut" style="margin:0 0 6px;text-align:right">'+esc(syncTxt)+'</p>';
+  h+=resumoCards(p);
   h+='<div class="card alert"><h2>⚠️ Procure urgência se houver</h2><ul style="margin:0;padding-left:18px">'+
      '<li>Grande quantidade de sangue nas fezes</li><li>Fezes pretas</li><li>Tontura ou desmaio</li><li>Fraqueza intensa</li>'+
      '<li>Dor abdominal forte, dor no peito ou falta de ar importante</li></ul></div>';
   if(!p.bio.length&&!p.exames.length){
-    return h+'<div class="card empty">Ainda não há dados de <b>'+esc(p.nome)+'</b>.<br>Use as abas Exames, Diário e Agenda para começar.</div>';
+    return h;
   }
   if(p.bio.length){
     var b=p.bio[p.bio.length-1];
@@ -399,7 +448,7 @@ function addDia(){
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v11 · 13/11/2026';
+var APP_VER='v12 · 14/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+
@@ -568,7 +617,7 @@ function dispInner(){
 /* ---------- Agenda ---------- */
 function vAgenda(){
   var p=P();
-  var h=dispHtml()+'<div class="card"><h2>Novo compromisso</h2>'+
+  var h=lembHtml()+dispHtml()+'<div class="card"><h2>Novo compromisso</h2>'+
   '<label>Título</label><input id="at" placeholder="Ex.: Consulta com coloproctologista">'+
   '<div class="row"><div><label>Data</label><input id="ad" type="date"></div><div><label>Hora</label><input id="ah" type="time" value="08:00"></div></div>'+
   '<label>Local</label><input id="al"><label>Preparo / notas</label><textarea id="ap" rows="2" placeholder="Jejum de 8–12 h, levar pedido…"></textarea>'+
@@ -1153,3 +1202,5 @@ if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){
   navigator.serviceWorker.addEventListener('controllerchange',function(){if(jaTinha&&!recarregou){recarregou=true;toast('Versão nova instalada. Reabrindo…');setTimeout(function(){location.reload()},900)}});
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
+
+pintaIcones();
