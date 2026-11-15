@@ -155,7 +155,7 @@ function notificaEstoque(forca){
   }catch(e){}
 }
 function atualizaBadge(){
-  var b=document.querySelector('#nav button[data-t=remedios]');if(!b)return;
+  var b=document.querySelector('.qk button[data-t=remedios]');if(!b)return;
   var o=b.querySelector('.bdg');if(o)o.remove();
   var n=alertasEstoque().length;
   if(n){var s=document.createElement('span');s.className='bdg';s.textContent=n;b.appendChild(s)}
@@ -252,8 +252,68 @@ function trendTxt(bio){
   return'<p class="mut" style="margin:4px 0 0">O peso caiu '+dif+' kg entre '+a.d+' e '+b.d+'.</p>';
 }
 function qkHtml(){
-  var q=[['diario','book','Diário de<br>Saúde'],['exames','flask','Exames'],['consulta','steth','Consultas'],['agenda','cal','Agenda'],['remedios','pill','Medicamentos']];
-  return'<div class="qk">'+q.map(function(x){return'<button onclick="goTab(\''+x[0]+'\')">'+IC[x[1]]+'<span>'+x[2]+'</span></button>'}).join('')+'</div>';
+  var q=[['diario','book','Diário'],['exames','flask','Exames'],['consulta','steth','Consultas'],['agenda','cal','Agenda'],['remedios','pill','Medicamentos'],['importar','doc','Importar PDF']];
+  return'<div class="qk">'+q.map(function(x){return'<button data-t="'+x[0]+'" onclick="goTab(\''+x[0]+'\')">'+IC[x[1]]+'<span>'+x[2]+'</span></button>'}).join('')+'</div>';
+}
+/* ---- água ---- */
+function AG(p){if(!p.agua)p.agua={};if(!p.aguaMeta)p.aguaMeta=2500;if(!p.aguaHoras)p.aguaHoras=['08:00','11:00','14:00','17:00','20:00'];return p}
+function litros(ml){return(ml/1000).toFixed(1).replace('.',',')}
+var editAgua=false;
+function aguaHtml(p){
+  AG(p);var hoje=isoHoje(),ml=p.agua[hoje]||0,meta=p.aguaMeta,pc=Math.min(100,Math.round(ml/meta*100));
+  var h='<div class="card"><div class="agua"><div class="copo"><i style="height:'+pc+'%"></i></div><div><div class="big">'+litros(ml)+' L <small>de '+litros(meta)+' L</small></div><div class="mut">Meta de água (personalizável)</div></div><span class="pct">'+pc+'%</span></div>'+
+    '<div class="pbar"><i style="width:'+pc+'%"></i></div>'+
+    '<div class="bw"><button onclick="addAgua(200)">+ 200 ml</button><button onclick="addAgua(300)">+ 300 ml</button><button onclick="addAgua(500)">+ 500 ml</button></div>'+
+    '<p class="mut" style="margin:8px 0 0;text-align:right"><a href="#" onclick="addAgua(-200);return false">desfazer 200 ml</a></p></div>';
+  h+='<div class="card"><h2 style="display:flex;justify-content:space-between;align-items:center"><span>'+'🔔 Lembretes de água</span><button class="btn sm sec" onclick="editAgua=!editAgua;render(true)">'+(editAgua?'Fechar':'✎ Editar')+'</button></h2>';
+  if(editAgua){
+    h+='<label>Meta do dia (ml) — o ideal é o médico indicar</label><input id="ag_meta" type="number" inputmode="numeric" value="'+meta+'">'+
+       '<label>Horários dos lembretes (separe com vírgula)</label><input id="ag_h" value="'+esc(p.aguaHoras.join(', '))+'">'+
+       '<button class="btn" onclick="saveAgua()">Salvar</button>';
+  }else h+='<div class="chips">'+p.aguaHoras.map(function(x){return'<span class="chip">'+esc(x)+'</span>'}).join('')+'</div>';
+  h+='<p class="mut" style="margin:8px 0 0">O aviso aparece enquanto o app estiver aberto.</p>'+avisoBtnHtml()+'</div>';
+  return h;
+}
+function addAgua(ml){var p=AG(P()),k=isoHoje();p.agua[k]=Math.max(0,(p.agua[k]||0)+ml);save();render(true)}
+function saveAgua(){
+  var p=AG(P()),m=parseInt(val('ag_meta'),10),hs=val('ag_h').split(/[,;\s]+/).filter(function(x){return/^\d{1,2}:\d{2}$/.test(x)}).map(function(x){return(x.length===4?'0':'')+x}).sort();
+  if(m>=500)p.aguaMeta=m;if(hs.length)p.aguaHoras=hs;editAgua=false;save();render(true);toast('Salvo.');
+}
+var avisadoAgua={};
+function tickAgua(){
+  if(!window.S||!S.profiles||document.getElementById('lockscr')&&!document.getElementById('lockscr').classList.contains('hide'))return;
+  var p=AG(P()),d=new Date(),hm=pad(d.getHours())+':'+pad(d.getMinutes()),k=isoHoje()+hm;
+  if(p.aguaHoras.indexOf(hm)<0||avisadoAgua[k])return;avisadoAgua[k]=1;
+  var falta=Math.max(0,p.aguaMeta-(p.agua[isoHoje()]||0));if(!falta)return;
+  var tx='💧 Hora de beber água · faltam '+falta+' ml';toast(tx);
+  try{if('Notification' in window&&Notification.permission==='granted')new Notification('Saúde a Dois',{body:tx,icon:'icon-192.png',tag:'agua'})}catch(e){}
+}
+setInterval(tickAgua,20000);
+/* ---- evolução ---- */
+function pDia(s){var m=/(\d{2})\/(\d{2})\/(\d{4})/.exec(s||'');return m?m[3]+'-'+m[2]+'-'+m[1]:''}
+function ultDias(n){var r=[],d=new Date();for(var i=n-1;i>=0;i--){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()-i);r.push({k:x.getFullYear()+'-'+pad(x.getMonth()+1)+'-'+pad(x.getDate()),w:DSEM[x.getDay()]})}return r}
+function evolHtml(p){
+  var dias=ultDias(7),W=300,H=120,L=26,B=22,T=8,R=8;
+  function med(k,c){var v=p.diario.filter(function(x){return pDia(x.d)===k&&x[c]!==''&&x[c]!=null}).map(function(x){return+x[c]});return v.length?v.reduce(function(a,b){return a+b},0)/v.length:null}
+  function linha(c,cor){
+    var pts=dias.map(function(d,i){var v=med(d.k,c);return v==null?null:[L+i*(W-L-R)/6,T+(H-T-B)*(1-v/10)]});
+    var s='',seg='';pts.forEach(function(q){if(q){seg+=(seg?' ':'')+q[0].toFixed(1)+','+q[1].toFixed(1)}else{if(seg.indexOf(' ')>0)s+='<polyline fill="none" stroke="'+cor+'" stroke-width="2.5" points="'+seg+'"/>';seg=''}});
+    if(seg.indexOf(' ')>0)s+='<polyline fill="none" stroke="'+cor+'" stroke-width="2.5" points="'+seg+'"/>';
+    pts.forEach(function(q){if(q)s+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="3.5" fill="'+cor+'"/>'});return s;
+  }
+  var g='';[0,5,10].forEach(function(v){var y=T+(H-T-B)*(1-v/10);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="#e3dcc8"/><text x="'+(L-6)+'" y="'+(y+4)+'" font-size="10" text-anchor="end" fill="#5f6f66">'+v+'</text>'});
+  dias.forEach(function(d,i){g+='<text x="'+(L+i*(W-L-R)/6)+'" y="'+(H-6)+'" font-size="10" text-anchor="middle" fill="#5f6f66">'+d.w+'</text>'});
+  var sv=p.diario.filter(function(x){return dias.some(function(d){return d.k===pDia(x.d)})&&x.sono}).map(function(x){return+x.sono}),
+      sm=sv.length?sv.reduce(function(a,b){return a+b},0)/sv.length:null,
+      sh=sm==null?'sem registro':Math.floor(sm)+'h '+pad(Math.round((sm%1)*60))+'min';
+  var u=p.diario.length?p.diario[p.diario.length-1]:null,dg='Sem registro';
+  if(u&&pDia(u.d)===isoHoje())dg=(u.pre||u.s!=='nenhum')?'Atenção hoje':'Sem alterações hoje';
+  var lp=p.diario.filter(function(x){return x.psis}).pop(),pr=lp?'<div class="tag '+((+lp.psis<90||+lp.pdia<60)?'t-hi':'t-ok')+'" style="margin-top:6px">Pressão '+lp.psis+'×'+lp.pdia+' ('+lp.d.slice(0,5)+')</div>':'';
+  return'<div class="card"><h2>📈 Dor e fadiga · últimos 7 dias</h2><svg class="ev" viewBox="0 0 '+W+' '+H+'">'+g+linha('dor','#0f5a3e')+linha('fad','#d0a53a')+'</svg>'+
+    '<div class="mut" style="text-align:center"><span style="color:#0f5a3e">●</span> Dor muscular &nbsp; <span style="color:#d0a53a">●</span> Fadiga</div>'+pr+'</div>'+
+    '<div class="two" style="margin-bottom:12px"><button class="tile" onclick="goTab(\'diario\')">'+IC.bed+'<span><b>Sono</b>'+sh+'<br><span class="mut">média dos últimos 7 dias</span></span></button>'+
+    '<button class="tile" onclick="goTab(\'diario\')">'+IC.stom+'<span><b>Sintomas digestivos</b>'+dg+'</span></button></div>'+
+    '<button class="tile" style="width:100%;margin-bottom:12px" onclick="goTab(\'diario\')">'+IC.hist+'<span><b>Histórico</b>Ver registros anteriores, sintomas e evolução</span></button>';
 }
 var MES=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
 function resumoCards(p){
@@ -287,7 +347,7 @@ function resumoCards(p){
   return h;
 }
 function vResumo(){
-  var p=P(),h=qkHtml()+alertaHtml();
+  var p=P(),h=qkHtml()+alertaHtml()+'<div class="pg">'+IC.drop+'<div><h2>Hidratação e evolução</h2></div></div>'+aguaHtml(p)+evolHtml(p);
   if(syncTxt)h+='<p class="mut" style="margin:0 0 6px;text-align:right">'+esc(syncTxt)+'</p>';
   h+=resumoCards(p);
   h+='<div class="card alert"><h2>⚠️ Procure urgência se houver</h2><ul style="margin:0;padding-left:18px">'+
@@ -416,39 +476,67 @@ function agendarColeta(){
 }
 
 /* ---------- Diário ---------- */
+var SINT=['Câibras','Dormência','Cólicas','Dor de cabeça','Dor de dente','Dor de ouvido','Formigamento','Tontura','Visão embaçada','Cabeça rodando'];
+var GAT=['Estresse','Esforço','Mudança de tempo','Comeu diferente','Esqueceu remédio','Dormiu mal'];
+var selSint={},selGat={};
+var MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'],DSEMLONG=['Dom.','Seg.','Ter.','Qua.','Qui.','Sex.','Sáb.'];
+function sintBox(){
+  var h='<div class="chips">'+SINT.map(function(s,i){return'<button type="button" class="chip'+(selSint[s]!=null?' on':'')+'" onclick="togSint('+i+')">'+s+'</button>'}).join('')+'</div>';
+  Object.keys(selSint).forEach(function(s){var i=SINT.indexOf(s);h+='<div class="sint"><span>'+s+'</span><input type="range" min="0" max="10" value="'+selSint[s]+'" oninput="selSint[SINT['+i+']]=+this.value;this.nextSibling.textContent=this.value"><b>'+selSint[s]+'</b></div>'});
+  return h;
+}
+function togSint(i){var s=SINT[i];if(selSint[s]!=null)delete selSint[s];else selSint[s]=5;document.getElementById('sintbox').innerHTML=sintBox()}
+function togGat(i){var s=GAT[i];if(selGat[s])delete selGat[s];else selGat[s]=1;document.getElementById('gatbox').innerHTML=gatBox()}
+function gatBox(){return'<div class="chips">'+GAT.map(function(s,i){return'<button type="button" class="chip'+(selGat[s]?' on':'')+'" onclick="togGat('+i+')">'+s+'</button>'}).join('')+'</div>'}
 function vDiario(){
-  var p=P();
-  var h='<div class="card"><h2>Como você está hoje?</h2>'+
-  '<label>Sangue nas fezes</label><select id="ds"><option>nenhum</option><option>pouco</option><option>moderado</option><option>muito</option></select>'+
+  var p=P(),d=new Date();
+  var h='<div class="pg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><div><h2>Diário de hoje</h2><p class="mut">'+DSEMLONG[d.getDay()]+', '+d.getDate()+' de '+MESES[d.getMonth()]+'</p></div></div>'+
+  '<div class="card"><h2>Como você está?</h2>'+sl('dor','Dor muscular')+sl('rig','Rigidez')+sl('fad','Fadiga')+sl('res','Falta de ar')+'</div>'+
+  '<div class="card"><h2>Sintomas de hoje</h2><div id="sintbox">'+sintBox()+'</div></div>'+
+  '<div class="card"><h2>Onde dói?</h2><textarea id="donde" rows="2" placeholder="Ex.: costas, ombro, joelho..."></textarea></div>'+
+  '<div class="card"><h2>Pressão, sono e o que aconteceu</h2>'+
+  '<div class="two"><div><label>Pressão (máxima)</label><input id="psis" type="number" inputmode="numeric" placeholder="ex.: 100"></div><div><label>Pressão (mínima)</label><input id="pdia" type="number" inputmode="numeric" placeholder="ex.: 60"></div></div>'+
+  '<label>Horas dormidas (opcional)</label><input id="sono" type="number" step="0.5" inputmode="decimal" placeholder="ex.: 7">'+
+  '<label>Gatilhos do dia</label><div id="gatbox">'+gatBox()+'</div></div>'+
+  '<div class="card"><h2>Sinais de alerta</h2><label>Sangue nas fezes</label><select id="ds"><option>nenhum</option><option>pouco</option><option>moderado</option><option>muito</option></select>'+
   '<label><input type="checkbox" id="dpre" style="width:auto"> Fezes pretas</label>'+
-  '<label><input type="checkbox" id="dtont" style="width:auto"> Tontura ou desmaio</label>'+
-  sl('dor','Dor muscular')+sl('rig','Rigidez')+sl('fad','Fadiga')+sl('res','Falta de ar')+
-  '<label>Observações (sono, remédio, esforço)</label><textarea id="dobs" rows="2"></textarea>'+
-  '<button class="btn" onclick="addDia()">Salvar registro</button></div>';
+  '<label><input type="checkbox" id="dtont" style="width:auto"> Tontura forte ou desmaio</label>'+
+  '<label>Observações (remédio, esforço)</label><textarea id="dobs" rows="2"></textarea></div>'+
+  '<button class="btn" style="width:100%;margin:0 0 12px" onclick="addDia()">Salvar registro</button>';
   h+='<div class="card"><h2>Registros</h2>';
   if(!p.diario.length)h+='<div class="empty">Nenhum registro ainda.</div>';
   p.diario.slice().reverse().forEach(function(x){
+    var sn=x.sint?Object.keys(x.sint).map(function(k){return k+' '+x.sint[k]}).join(' · '):'';
     h+='<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+x.d+'</b><br>'+
     'Sangue: '+esc(x.s)+(x.pre?' · <span class="tag t-hi">fezes pretas</span>':'')+(x.tont?' · <span class="tag t-hi">tontura</span>':'')+
     '<div class="mut">Dor '+x.dor+' · Rigidez '+x.rig+' · Fadiga '+x.fad+' · Falta de ar '+x.res+'</div>'+
+    (sn?'<div class="mut">Sintomas: '+esc(sn)+'</div>':'')+(x.onde?'<div class="mut">Onde dói: '+esc(x.onde)+'</div>':'')+
+    (x.psis?'<div class="mut">Pressão '+x.psis+'×'+x.pdia+'</div>':'')+(x.sono?'<div class="mut">Sono '+x.sono+' h</div>':'')+
+    (x.gat&&x.gat.length?'<div class="mut">Gatilhos: '+esc(x.gat.join(', '))+'</div>':'')+
     (x.obs?'<div class="mut">'+esc(x.obs)+'</div>':'')+'</div>';
   });
   return h+'</div>';
 }
-function sl(id,t){return'<label>'+t+': <b id="'+id+'v">0</b>/10</label><input type="range" id="'+id+'" min="0" max="10" value="0" oninput="document.getElementById(\''+id+'v\').textContent=this.value">'}
+function sl(id,t){return'<div class="sl"><label><span>'+t+'</span><b><span id="'+id+'v">0</span>/10</b></label><input type="range" id="'+id+'" min="0" max="10" value="0" oninput="document.getElementById(\''+id+'v\').textContent=this.value"></div>'}
 function addDia(){
   var x={d:nowStr(),s:val('ds'),pre:document.getElementById('dpre').checked,tont:document.getElementById('dtont').checked,
-    dor:val('dor'),rig:val('rig'),fad:val('fad'),res:val('res'),obs:val('dobs')};
+    dor:val('dor'),rig:val('rig'),fad:val('fad'),res:val('res'),obs:val('dobs'),
+    sint:JSON.parse(JSON.stringify(selSint)),onde:val('donde'),psis:val('psis'),pdia:val('pdia'),sono:val('sono'),gat:Object.keys(selGat)};
   P().diario.push(x);save();
   var grave=x.pre||x.tont||x.s==='muito'||+x.res>=7;
+  var baixa=(+x.psis&&+x.psis<90)||(+x.pdia&&+x.pdia<60);
+  var tv=x.sint['Tontura']!=null&&x.sint['Visão embaçada']!=null;
+  selSint={};selGat={};
   render();
   if(grave)alert('Atenção: esses sinais podem exigir avaliação urgente. Procure um pronto atendimento.');
+  else if(baixa||tv)alert('Pressão baixa ou tontura com visão embaçada: sente ou deite um pouco, beba água e avise o médico. Se piorar ou desmaiar, procure atendimento.');
+  else toast('Registro salvo.');
 }
 
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v12 · 14/11/2026';
+var APP_VER='v13 · 15/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+
@@ -940,7 +1028,7 @@ function exportReg(k){
     rows=[['Data','Peso (kg)','Massa de gordura (kg)','Massa muscular (kg)','Gordura visceral','IMC','Gordura corporal (%)','Cintura-quadril','TMB (kcal)','Água corporal (L)']].concat(p.bio.map(function(b){return[b.d,vc(b.peso),vc(b.gord),vc(b.musc),vc(b.visc),vc(b.imc),vc(b.pgc),vc(b.rcq),vc(b.tmb),vc(b.agua)]}));
   }else if(k==='diario'){
     file='Diario-de-sintomas-'+nm+'.csv';
-    rows=[['Data','Sangue nas fezes','Fezes pretas','Tontura/desmaio','Dor (0-10)','Rigidez (0-10)','Fadiga (0-10)','Falta de ar (0-10)','Observações']].concat(p.diario.map(function(x){return[x.d,x.s,x.pre?'sim':'não',x.tont?'sim':'não',x.dor,x.rig,x.fad,x.res,x.obs]}));
+    rows=[['Data','Sangue nas fezes','Fezes pretas','Tontura/desmaio','Dor (0-10)','Rigidez (0-10)','Fadiga (0-10)','Falta de ar (0-10)','Observações','Sintomas','Onde dói','Pressão','Sono (h)','Gatilhos']].concat(p.diario.map(function(x){return[x.d,x.s,x.pre?'sim':'não',x.tont?'sim':'não',x.dor,x.rig,x.fad,x.res,x.obs,x.sint?Object.keys(x.sint).map(function(k){return k+' '+x.sint[k]}).join('; '):'',x.onde||'',x.psis?x.psis+'x'+x.pdia:'',x.sono||'',(x.gat||[]).join('; ')]}));
   }else{
     file='Em-uso-'+nm+'.csv';
     rows=[['Tipo','Nome','Dose / uso','Motivo','Finalidade','Pontos para revisar']].concat(p.meds.map(function(m){return[m.tipo||'Medicamento',m.n,m.dose,m.motivo,m.finalidade,m.nota&&m.nota!=='—'?m.nota:'']}));
@@ -1128,7 +1216,7 @@ function sheetTabs(p){
   return[
     {title:'Histórico de exames',rows:[['Data','Exame','Valor','Unidade','Referência','Situação']].concat(p.exames.slice().sort(function(a,b){return dkey(a.d)<dkey(b.d)?-1:1}).map(function(e){return[e.d,e.n,e.v,e.u,refTxt(e),flag(e)[0]]}))},
     {title:'Bioimpedância',rows:[['Data','Peso (kg)','Massa de gordura (kg)','Massa muscular (kg)','Gordura visceral','IMC','Gordura corporal (%)','Cintura-quadril','TMB (kcal)','Água corporal (L)']].concat(p.bio.map(function(b){return[b.d,num(b.peso),num(b.gord),num(b.musc),num(b.visc),num(b.imc),num(b.pgc),num(b.rcq),num(b.tmb),num(b.agua)]}))},
-    {title:'Diário de sintomas',rows:[['Data','Sangue nas fezes','Fezes pretas','Tontura/desmaio','Dor (0-10)','Rigidez (0-10)','Fadiga (0-10)','Falta de ar (0-10)','Observações']].concat(p.diario.map(function(x){return[x.d,x.s,x.pre?'sim':'não',x.tont?'sim':'não',+x.dor,+x.rig,+x.fad,+x.res,x.obs||'']}))},
+    {title:'Diário de sintomas',rows:[['Data','Sangue nas fezes','Fezes pretas','Tontura/desmaio','Dor (0-10)','Rigidez (0-10)','Fadiga (0-10)','Falta de ar (0-10)','Observações','Sintomas','Onde dói','Pressão','Sono (h)','Gatilhos']].concat(p.diario.map(function(x){return[x.d,x.s,x.pre?'sim':'não',x.tont?'sim':'não',+x.dor,+x.rig,+x.fad,+x.res,x.obs||'',x.sint?Object.keys(x.sint).map(function(k){return k+' '+x.sint[k]}).join('; '):'',x.onde||'',x.psis?x.psis+'x'+x.pdia:'',x.sono||'',(x.gat||[]).join('; ')]}))},
     {title:'Em uso',rows:[['Tipo','Nome','Dose / uso','Motivo','Finalidade','Pontos para revisar']].concat(p.meds.map(function(m){return[m.tipo||'Medicamento',m.n,m.dose||'',m.motivo||'',m.finalidade||'',m.nota&&m.nota!=='—'?m.nota:'']}))},
     {title:'Pendentes',rows:[['Especialidade','Tipo','Exame','Status']].concat(p.pend.map(function(x){return[x.esp||'',x.tipo||tipoOf(x.n),x.n,x.s]}))},
     {title:'Consultas',rows:[['Data','Especialidade','O que o médico disse, pediu ou orientou']].concat((p.consultas||[]).map(function(c){return[c.d,c.esp,c.nota]}))}

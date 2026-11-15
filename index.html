@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#04241b">
+<meta name="theme-color" content="#0b4a33">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Saúde a Dois">
 <title>Saúde a Dois</title>
@@ -24,33 +24,29 @@
 
 <header>
   <div class="hbar">
-    <button class="menu" onclick="abreMenu()" aria-label="Menu" id="bmenu"></button>
-    <img class="mark" alt="Saúde a Dois" src="no.png">
-    <div class="brand"><img alt="" src="impacto.png"></div>
-  </div>
-  <div class="htit"><h1>Saúde a Dois</h1><div class="sub">Acompanhamento de Saúde e Bem-Estar</div></div>
-  <div class="hrow">
-    <div class="seg" id="seg">
-      <button data-p="douglas" class="on"><span class="u"></span>Douglas</button>
-      <button data-p="rodrigo"><span class="u"></span>Rodrigo</button>
+    <img class="mark" alt="" src="no.png">
+    <div class="htit"><h1>Saúde a Dois</h1><div class="sub">Acompanhamento de Saúde e Bem-Estar</div></div>
+    <div class="hbt">
+      <button class="lock" id="bgear" onclick="goTab('config')" aria-label="Configurações" title="Configurações"></button>
+      <button class="lock" id="bcloud" onclick="goTab('google')" aria-label="Google" title="Google"></button>
+      <button class="lock" id="block" onclick="lockNow()" aria-label="Bloquear"></button>
     </div>
-    <button class="lock" id="bgear" onclick="goTab('config')" aria-label="Configurações" title="Configurações"></button>
-    <button class="lock" id="bcloud" onclick="goTab('google')" aria-label="Google" title="Google"></button>
-    <button class="lock" id="block" onclick="lockNow()" aria-label="Bloquear"></button>
+  </div>
+  <div class="seg" id="seg">
+    <button data-p="douglas" class="on"><span class="u"></span>Douglas</button>
+    <button data-p="rodrigo"><span class="u"></span>Rodrigo</button>
   </div>
 </header>
-<div id="menu" class="hide" onclick="fechaMenu()"><div class="pn" onclick="event.stopPropagation()"></div></div>
+<div id="menu" class="hide"><div class="pn"></div></div>
 
 <main id="view"></main>
 
 <nav id="nav">
   <button data-t="resumo" class="on"><span class="i" data-ic="home"></span>Resumo</button>
   <button data-t="exames"><span class="i" data-ic="flask"></span>Exames</button>
-  <button data-t="importar"><span class="i" data-ic="doc"></span>Importar</button>
   <button data-t="diario"><span class="i" data-ic="book"></span>Diário</button>
   <button data-t="agenda"><span class="i" data-ic="cal"></span>Agenda</button>
   <button data-t="consulta"><span class="i" data-ic="steth"></span>Consulta</button>
-  <button data-t="remedios"><span class="i" data-ic="pill"></span>Em uso</button>
 </nav>
 
 <script src="icons.js"></script>
