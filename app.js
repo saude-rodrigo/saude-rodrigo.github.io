@@ -155,7 +155,7 @@ function notificaEstoque(forca){
   }catch(e){}
 }
 function atualizaBadge(){
-  var b=document.querySelector('.qk button[data-t=remedios]');if(!b)return;
+  var b=document.querySelector('#nav button[data-t=resumo]');if(!b)return;
   var o=b.querySelector('.bdg');if(o)o.remove();
   var n=alertasEstoque().length;
   if(n){var s=document.createElement('span');s.className='bdg';s.textContent=n;b.appendChild(s)}
@@ -292,6 +292,12 @@ setInterval(tickAgua,20000);
 /* ---- evolução ---- */
 function pDia(s){var m=/(\d{2})\/(\d{2})\/(\d{4})/.exec(s||'');return m?m[3]+'-'+m[2]+'-'+m[1]:''}
 function ultDias(n){var r=[],d=new Date();for(var i=n-1;i>=0;i--){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()-i);r.push({k:x.getFullYear()+'-'+pad(x.getMonth()+1)+'-'+pad(x.getDate()),w:DSEM[x.getDay()]})}return r}
+function urTile(p){
+  var hj=p.diario.filter(function(x){return pDia(x.d)===isoHoje()&&x.uri}),vez=0,ml=0,dif=null,cor='';
+  hj.forEach(function(x){vez+=+x.uri.vez||0;ml+=+x.uri.ml||0;if(x.uri.dif!=='')dif=x.uri.dif;if(x.uri.cor)cor=x.uri.cor});
+  var tx=!hj.length?'Sem registro hoje':'<b>'+vez+' vez(es) ao banheiro</b>'+(ml?ml+' ml no dia<br>':'')+(dif!==null?'dificuldade '+dif+'/10':'')+(cor?'<br>cor: '+esc(cor.toLowerCase()):'');
+  return'<button class="tile" style="width:100%;margin-bottom:12px" onclick="goTab(\'diario\')"><span style="font-size:26px">🚽</span><span><b>Urina hoje</b>'+tx+'</span></button>';
+}
 function evolHtml(p){
   var dias=ultDias(7),W=300,H=120,L=26,B=22,T=8,R=8;
   function med(k,c){var v=p.diario.filter(function(x){return pDia(x.d)===k&&x[c]!==''&&x[c]!=null}).map(function(x){return+x[c]});return v.length?v.reduce(function(a,b){return a+b},0)/v.length:null}
@@ -313,7 +319,7 @@ function evolHtml(p){
     '<div class="mut" style="text-align:center"><span style="color:#0f5a3e">●</span> Dor muscular &nbsp; <span style="color:#d0a53a">●</span> Fadiga</div>'+pr+'</div>'+
     '<div class="two" style="margin-bottom:12px"><button class="tile" onclick="goTab(\'diario\')">'+IC.bed+'<span><b>Sono</b>'+sh+'<br><span class="mut">média dos últimos 7 dias</span></span></button>'+
     '<button class="tile" onclick="goTab(\'diario\')">'+IC.stom+'<span><b>Sintomas digestivos</b>'+dg+'</span></button></div>'+
-    '<button class="tile" style="width:100%;margin-bottom:12px" onclick="goTab(\'diario\')">'+IC.hist+'<span><b>Histórico</b>Ver registros anteriores, sintomas e evolução</span></button>';
+    urTile(p)+'<button class="tile" style="width:100%;margin-bottom:12px" onclick="goTab(\'diario\')">'+IC.hist+'<span><b>Histórico</b>Ver registros anteriores, sintomas e evolução</span></button>';
 }
 var MES=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
 function resumoCards(p){
@@ -478,7 +484,21 @@ function agendarColeta(){
 /* ---------- Diário ---------- */
 var SINT=['Câibras','Dormência','Cólicas','Dor de cabeça','Dor de dente','Dor de ouvido','Formigamento','Tontura','Visão embaçada','Cabeça rodando'];
 var GAT=['Estresse','Esforço','Mudança de tempo','Comeu diferente','Esqueceu remédio','Dormiu mal'];
-var selSint={},selGat={};
+var selSint={},selGat={},selUr={},selCor='',selQtd='';
+var COR=['Clara','Amarelo claro','Amarelo escuro','Laranja/âmbar','Avermelhada','Marrom','Turva'],QTD=['Pouca','Normal','Muita'],URS=['Dor ao urinar','Ardência','Jato fraco','Esforço para começar','Sensação de não esvaziar','Acordou à noite para urinar','Não consegui urinar'];
+function urinBox(){
+  function ch(a,sel,fn){return'<div class="chips">'+a.map(function(s,i){return'<button type="button" class="chip'+(sel(s)?' on':'')+'" onclick="'+fn+'('+i+')">'+s+'</button>'}).join('')+'</div>'}
+  return'<div class="sl"><label><span>Nível de dificuldade para urinar</span><b><span id="udifv">0</span>/10</b></label><input type="range" id="udif" min="0" max="10" value="0" oninput="document.getElementById(\'udifv\').textContent=this.value"></div>'+
+   '<label>Cor da urina</label>'+ch(COR,function(s){return selCor===s},'setCor')+
+   '<label>Quanto urinou</label>'+ch(QTD,function(s){return selQtd===s},'setQtd')+
+   '<div class="two"><div><label>Total em ml (se medir)</label><input id="uml" type="number" inputmode="numeric" placeholder="opcional"></div><div><label>Vezes ao banheiro</label><input id="uvez" type="number" inputmode="numeric" placeholder="ex.: 6"></div></div>'+
+   '<label>O que sentiu</label>'+ch(URS,function(s){return selUr[s]},'togUr')+
+   '<label>Observações sobre a urina</label><textarea id="uobs" rows="2" placeholder="Ex.: cheiro forte, saiu devagar..."></textarea>';
+}
+function keepUr(){var v={dif:val('udif'),ml:val('uml'),vez:val('uvez'),obs:val('uobs')};document.getElementById('urbox').innerHTML=urinBox();['udif','uml','uvez','uobs'].forEach(function(k){var e=document.getElementById(k);if(e)e.value=v[k==='udif'?'dif':k==='uml'?'ml':k==='uvez'?'vez':'obs']});document.getElementById('udifv').textContent=v.dif||0}
+function setCor(i){selCor=selCor===COR[i]?'':COR[i];keepUr()}
+function setQtd(i){selQtd=selQtd===QTD[i]?'':QTD[i];keepUr()}
+function togUr(i){var s=URS[i];if(selUr[s])delete selUr[s];else selUr[s]=1;keepUr()}
 var MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'],DSEMLONG=['Dom.','Seg.','Ter.','Qua.','Qui.','Sex.','Sáb.'];
 function sintBox(){
   var h='<div class="chips">'+SINT.map(function(s,i){return'<button type="button" class="chip'+(selSint[s]!=null?' on':'')+'" onclick="togSint('+i+')">'+s+'</button>'}).join('')+'</div>';
@@ -494,6 +514,7 @@ function vDiario(){
   '<div class="card"><h2>Como você está?</h2>'+sl('dor','Dor muscular')+sl('rig','Rigidez')+sl('fad','Fadiga')+sl('res','Falta de ar')+'</div>'+
   '<div class="card"><h2>Sintomas de hoje</h2><div id="sintbox">'+sintBox()+'</div></div>'+
   '<div class="card"><h2>Onde dói?</h2><textarea id="donde" rows="2" placeholder="Ex.: costas, ombro, joelho..."></textarea></div>'+
+  '<div class="card"><h2>🚽 Urina</h2><div id="urbox">'+urinBox()+'</div></div>'+
   '<div class="card"><h2>Pressão, sono e o que aconteceu</h2>'+
   '<div class="two"><div><label>Pressão (máxima)</label><input id="psis" type="number" inputmode="numeric" placeholder="ex.: 100"></div><div><label>Pressão (mínima)</label><input id="pdia" type="number" inputmode="numeric" placeholder="ex.: 60"></div></div>'+
   '<label>Horas dormidas (opcional)</label><input id="sono" type="number" step="0.5" inputmode="decimal" placeholder="ex.: 7">'+
@@ -511,6 +532,7 @@ function vDiario(){
     'Sangue: '+esc(x.s)+(x.pre?' · <span class="tag t-hi">fezes pretas</span>':'')+(x.tont?' · <span class="tag t-hi">tontura</span>':'')+
     '<div class="mut">Dor '+x.dor+' · Rigidez '+x.rig+' · Fadiga '+x.fad+' · Falta de ar '+x.res+'</div>'+
     (sn?'<div class="mut">Sintomas: '+esc(sn)+'</div>':'')+(x.onde?'<div class="mut">Onde dói: '+esc(x.onde)+'</div>':'')+
+    (x.uri&&(x.uri.dif||x.uri.cor||x.uri.qtd||x.uri.ml||x.uri.vez||x.uri.sint.length||x.uri.obs)?'<div class="mut">Urina: dificuldade '+(x.uri.dif||0)+'/10'+(x.uri.cor?' · cor '+esc(x.uri.cor.toLowerCase()):'')+(x.uri.qtd?' · '+esc(x.uri.qtd.toLowerCase()):'')+(x.uri.ml?' · '+x.uri.ml+' ml':'')+(x.uri.vez?' · '+x.uri.vez+' vez(es) ao banheiro':'')+(x.uri.sint.length?' · '+esc(x.uri.sint.join(', ')):'')+(x.uri.obs?' · '+esc(x.uri.obs):'')+'</div>':'')+
     (x.psis?'<div class="mut">Pressão '+x.psis+'×'+x.pdia+'</div>':'')+(x.sono?'<div class="mut">Sono '+x.sono+' h</div>':'')+
     (x.gat&&x.gat.length?'<div class="mut">Gatilhos: '+esc(x.gat.join(', '))+'</div>':'')+
     (x.obs?'<div class="mut">'+esc(x.obs)+'</div>':'')+'</div>';
@@ -521,13 +543,17 @@ function sl(id,t){return'<div class="sl"><label><span>'+t+'</span><b><span id="'
 function addDia(){
   var x={d:nowStr(),s:val('ds'),pre:document.getElementById('dpre').checked,tont:document.getElementById('dtont').checked,
     dor:val('dor'),rig:val('rig'),fad:val('fad'),res:val('res'),obs:val('dobs'),
-    sint:JSON.parse(JSON.stringify(selSint)),onde:val('donde'),psis:val('psis'),pdia:val('pdia'),sono:val('sono'),gat:Object.keys(selGat)};
+    sint:JSON.parse(JSON.stringify(selSint)),onde:val('donde'),psis:val('psis'),pdia:val('pdia'),sono:val('sono'),gat:Object.keys(selGat),
+    uri:{dif:val('udif'),cor:selCor,qtd:selQtd,ml:val('uml'),vez:val('uvez'),sint:Object.keys(selUr),obs:val('uobs')}};
   P().diario.push(x);save();
   var grave=x.pre||x.tont||x.s==='muito'||+x.res>=7;
   var baixa=(+x.psis&&+x.psis<90)||(+x.pdia&&+x.pdia<60);
   var tv=x.sint['Tontura']!=null&&x.sint['Visão embaçada']!=null;
-  selSint={};selGat={};
+  var uAlerta=x.uri.cor==='Avermelhada'||x.uri.sint.indexOf('Não consegui urinar')>=0||+x.uri.dif>=8;
+  selSint={};selGat={};selUr={};selCor='';selQtd='';
   render();
+  if(uAlerta)alert('Atenção na urina: urina avermelhada, não conseguir urinar ou dificuldade muito forte precisam de avaliação médica. Se não urinar por várias horas, tiver dor forte ou febre, procure atendimento hoje.');
+  else
   if(grave)alert('Atenção: esses sinais podem exigir avaliação urgente. Procure um pronto atendimento.');
   else if(baixa||tv)alert('Pressão baixa ou tontura com visão embaçada: sente ou deite um pouco, beba água e avise o médico. Se piorar ou desmaiar, procure atendimento.');
   else toast('Registro salvo.');
@@ -536,7 +562,7 @@ function addDia(){
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v13 · 15/11/2026';
+var APP_VER='v14 · 15/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+
@@ -1028,7 +1054,7 @@ function exportReg(k){
     rows=[['Data','Peso (kg)','Massa de gordura (kg)','Massa muscular (kg)','Gordura visceral','IMC','Gordura corporal (%)','Cintura-quadril','TMB (kcal)','Água corporal (L)']].concat(p.bio.map(function(b){return[b.d,vc(b.peso),vc(b.gord),vc(b.musc),vc(b.visc),vc(b.imc),vc(b.pgc),vc(b.rcq),vc(b.tmb),vc(b.agua)]}));
   }else if(k==='diario'){
     file='Diario-de-sintomas-'+nm+'.csv';
-    rows=[['Data','Sangue nas fezes','Fezes pretas','Tontura/desmaio','Dor (0-10)','Rigidez (0-10)','Fadiga (0-10)','Falta de ar (0-10)','Observações','Sintomas','Onde dói','Pressão','Sono (h)','Gatilhos']].concat(p.diario.map(function(x){return[x.d,x.s,x.pre?'sim':'não',x.tont?'sim':'não',x.dor,x.rig,x.fad,x.res,x.obs,x.sint?Object.keys(x.sint).map(function(k){return k+' '+x.sint[k]}).join('; '):'',x.onde||'',x.psis?x.psis+'x'+x.pdia:'',x.sono||'',(x.gat||[]).join('; ')]}));
+    rows=[['Data','Sangue nas fezes','Fezes pretas','Tontura/desmaio','Dor (0-10)','Rigidez (0-10)','Fadiga (0-10)','Falta de ar (0-10)','Observações','Sintomas','Onde dói','Pressão','Sono (h)','Gatilhos','Urina: dificuldade (0-10)','Urina: cor','Urina: quantidade','Urina (ml)','Vezes ao banheiro','Urina: sintomas','Urina: obs']].concat(p.diario.map(function(x){return[x.d,x.s,x.pre?'sim':'não',x.tont?'sim':'não',x.dor,x.rig,x.fad,x.res,x.obs,x.sint?Object.keys(x.sint).map(function(k){return k+' '+x.sint[k]}).join('; '):'',x.onde||'',x.psis?x.psis+'x'+x.pdia:'',x.sono||'',(x.gat||[]).join('; '),x.uri?x.uri.dif:'',x.uri?x.uri.cor:'',x.uri?x.uri.qtd:'',x.uri?x.uri.ml:'',x.uri?x.uri.vez:'',x.uri?x.uri.sint.join('; '):'',x.uri?x.uri.obs:'']}));
   }else{
     file='Em-uso-'+nm+'.csv';
     rows=[['Tipo','Nome','Dose / uso','Motivo','Finalidade','Pontos para revisar']].concat(p.meds.map(function(m){return[m.tipo||'Medicamento',m.n,m.dose,m.motivo,m.finalidade,m.nota&&m.nota!=='—'?m.nota:'']}));
@@ -1216,7 +1242,7 @@ function sheetTabs(p){
   return[
     {title:'Histórico de exames',rows:[['Data','Exame','Valor','Unidade','Referência','Situação']].concat(p.exames.slice().sort(function(a,b){return dkey(a.d)<dkey(b.d)?-1:1}).map(function(e){return[e.d,e.n,e.v,e.u,refTxt(e),flag(e)[0]]}))},
     {title:'Bioimpedância',rows:[['Data','Peso (kg)','Massa de gordura (kg)','Massa muscular (kg)','Gordura visceral','IMC','Gordura corporal (%)','Cintura-quadril','TMB (kcal)','Água corporal (L)']].concat(p.bio.map(function(b){return[b.d,num(b.peso),num(b.gord),num(b.musc),num(b.visc),num(b.imc),num(b.pgc),num(b.rcq),num(b.tmb),num(b.agua)]}))},
-    {title:'Diário de sintomas',rows:[['Data','Sangue nas fezes','Fezes pretas','Tontura/desmaio','Dor (0-10)','Rigidez (0-10)','Fadiga (0-10)','Falta de ar (0-10)','Observações','Sintomas','Onde dói','Pressão','Sono (h)','Gatilhos']].concat(p.diario.map(function(x){return[x.d,x.s,x.pre?'sim':'não',x.tont?'sim':'não',+x.dor,+x.rig,+x.fad,+x.res,x.obs||'',x.sint?Object.keys(x.sint).map(function(k){return k+' '+x.sint[k]}).join('; '):'',x.onde||'',x.psis?x.psis+'x'+x.pdia:'',x.sono||'',(x.gat||[]).join('; ')]}))},
+    {title:'Diário de sintomas',rows:[['Data','Sangue nas fezes','Fezes pretas','Tontura/desmaio','Dor (0-10)','Rigidez (0-10)','Fadiga (0-10)','Falta de ar (0-10)','Observações','Sintomas','Onde dói','Pressão','Sono (h)','Gatilhos','Urina: dificuldade (0-10)','Urina: cor','Urina: quantidade','Urina (ml)','Vezes ao banheiro','Urina: sintomas','Urina: obs']].concat(p.diario.map(function(x){return[x.d,x.s,x.pre?'sim':'não',x.tont?'sim':'não',+x.dor,+x.rig,+x.fad,+x.res,x.obs||'',x.sint?Object.keys(x.sint).map(function(k){return k+' '+x.sint[k]}).join('; '):'',x.onde||'',x.psis?x.psis+'x'+x.pdia:'',x.sono||'',(x.gat||[]).join('; '),x.uri?x.uri.dif:'',x.uri?x.uri.cor:'',x.uri?x.uri.qtd:'',x.uri?x.uri.ml:'',x.uri?x.uri.vez:'',x.uri?x.uri.sint.join('; '):'',x.uri?x.uri.obs:'']}))},
     {title:'Em uso',rows:[['Tipo','Nome','Dose / uso','Motivo','Finalidade','Pontos para revisar']].concat(p.meds.map(function(m){return[m.tipo||'Medicamento',m.n,m.dose||'',m.motivo||'',m.finalidade||'',m.nota&&m.nota!=='—'?m.nota:'']}))},
     {title:'Pendentes',rows:[['Especialidade','Tipo','Exame','Status']].concat(p.pend.map(function(x){return[x.esp||'',x.tipo||tipoOf(x.n),x.n,x.s]}))},
     {title:'Consultas',rows:[['Data','Especialidade','O que o médico disse, pediu ou orientou']].concat((p.consultas||[]).map(function(c){return[c.d,c.esp,c.nota]}))}
