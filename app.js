@@ -67,7 +67,7 @@ document.getElementById('seg').addEventListener('click',function(e){
 function pintaIcones(){
   [].forEach.call(document.querySelectorAll('[data-ic]'),function(e){e.innerHTML=IC[e.dataset.ic]});
   [].forEach.call(document.querySelectorAll('#seg .u'),function(e){e.innerHTML=IC.user});
-  var m={bmenu:'menu',bgear:'gear',bcloud:'cloud',block:'lock'};
+  var m={bbell:'bell',bgear:'gear'};
   Object.keys(m).forEach(function(k){var e=document.getElementById(k);if(e)e.innerHTML=IC[m[k]]});
 }
 function abreMenu(){
@@ -252,7 +252,7 @@ function trendTxt(bio){
   return'<p class="mut" style="margin:4px 0 0">O peso caiu '+dif+' kg entre '+a.d+' e '+b.d+'.</p>';
 }
 function qkHtml(){
-  var q=[['diario','book','Diário'],['exames','flask','Exames'],['consulta','steth','Consultas'],['agenda','cal','Agenda'],['remedios','pill','Medicamentos'],['importar','doc','Importar PDF']];
+  var q=[['remedios','pill','Medicamentos'],['importar','doc','Importar PDF'],['consulta','steth','Consulta']];
   return'<div class="qk">'+q.map(function(x){return'<button data-t="'+x[0]+'" onclick="goTab(\''+x[0]+'\')">'+IC[x[1]]+'<span>'+x[2]+'</span></button>'}).join('')+'</div>';
 }
 /* ---- água ---- */
@@ -261,16 +261,17 @@ function litros(ml){return(ml/1000).toFixed(1).replace('.',',')}
 var editAgua=false;
 function aguaHtml(p){
   AG(p);var hoje=isoHoje(),ml=p.agua[hoje]||0,meta=p.aguaMeta,pc=Math.min(100,Math.round(ml/meta*100));
-  var h='<div class="card"><div class="agua"><div class="copo"><i style="height:'+pc+'%"></i></div><div><div class="big">'+litros(ml)+' L <small>de '+litros(meta)+' L</small></div><div class="mut">Meta de água (personalizável)</div></div><span class="pct">'+pc+'%</span></div>'+
+  var h='<div class="card"><div class="hh"><h2>'+IC.drop+'Hidratação</h2><a href="#" class="ed" onclick="editAgua=!editAgua;render(true);return false">✎ Meta: '+litros(meta)+' L (editar)</a></div>'+
+    '<div class="agua"><div class="copo"><i style="height:'+pc+'%"></i></div><div class="big">'+litros(ml)+' L <small>de '+litros(meta)+' L</small></div><span class="pct">'+pc+'%</span></div>'+
     '<div class="pbar"><i style="width:'+pc+'%"></i></div>'+
     '<div class="bw"><button onclick="addAgua(200)">+ 200 ml</button><button onclick="addAgua(300)">+ 300 ml</button><button onclick="addAgua(500)">+ 500 ml</button></div>'+
-    '<p class="mut" style="margin:8px 0 0;text-align:right"><a href="#" onclick="addAgua(-200);return false">desfazer 200 ml</a></p></div>';
-  h+='<div class="card"><h2 style="display:flex;justify-content:space-between;align-items:center"><span>'+'🔔 Lembretes de água</span><button class="btn sm sec" onclick="editAgua=!editAgua;render(true)">'+(editAgua?'Fechar':'✎ Editar')+'</button></h2>';
+    '<p class="mut" style="margin:6px 0 0;text-align:right"><a href="#" onclick="addAgua(-200);return false">desfazer 200 ml</a></p>'+
+    '<button class="lrow" onclick="editAgua=!editAgua;render(true)">'+IC.bell+'<b>Lembretes de água:</b><span>'+p.aguaHoras.map(esc).join(' · ')+'</span><em>›</em></button>';
   if(editAgua){
     h+='<label>Meta do dia (ml) — o ideal é o médico indicar</label><input id="ag_meta" type="number" inputmode="numeric" value="'+meta+'">'+
        '<label>Horários dos lembretes (separe com vírgula)</label><input id="ag_h" value="'+esc(p.aguaHoras.join(', '))+'">'+
        '<button class="btn" onclick="saveAgua()">Salvar</button>';
-  }else h+='<div class="chips">'+p.aguaHoras.map(function(x){return'<span class="chip">'+esc(x)+'</span>'}).join('')+'</div>';
+  }
   h+='<p class="mut" style="margin:8px 0 0">O aviso aparece enquanto o app estiver aberto.</p>'+avisoBtnHtml()+'</div>';
   return h;
 }
@@ -298,30 +299,62 @@ function urTile(p){
   var tx=!hj.length?'Sem registro hoje':'<b>'+vez+' vez(es) ao banheiro</b>'+(ml?ml+' ml no dia<br>':'')+(dif!==null?'dificuldade '+dif+'/10':'')+(cor?'<br>cor: '+esc(cor.toLowerCase()):'');
   return'<button class="tile" style="width:100%;margin-bottom:12px" onclick="goTab(\'diario\')"><span style="font-size:26px">🚽</span><span><b>Urina hoje</b>'+tx+'</span></button>';
 }
-function evolHtml(p){
-  var dias=ultDias(7),W=300,H=120,L=26,B=22,T=8,R=8;
+function evolChart(p){
+  var dias=ultDias(7),W=330,H=170,L=30,B=38,T=14,R=48;
   function med(k,c){var v=p.diario.filter(function(x){return pDia(x.d)===k&&x[c]!==''&&x[c]!=null}).map(function(x){return+x[c]});return v.length?v.reduce(function(a,b){return a+b},0)/v.length:null}
-  function linha(c,cor){
-    var pts=dias.map(function(d,i){var v=med(d.k,c);return v==null?null:[L+i*(W-L-R)/6,T+(H-T-B)*(1-v/10)]});
-    var s='',seg='';pts.forEach(function(q){if(q){seg+=(seg?' ':'')+q[0].toFixed(1)+','+q[1].toFixed(1)}else{if(seg.indexOf(' ')>0)s+='<polyline fill="none" stroke="'+cor+'" stroke-width="2.5" points="'+seg+'"/>';seg=''}});
-    if(seg.indexOf(' ')>0)s+='<polyline fill="none" stroke="'+cor+'" stroke-width="2.5" points="'+seg+'"/>';
-    pts.forEach(function(q){if(q)s+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="3.5" fill="'+cor+'"/>'});return s;
+  function X(i){return L+i*(W-L-R)/6}function Y(v){return T+(H-T-B)*(1-v/10)}
+  var g='',y0=Y(0);
+  [0,5,10].forEach(function(v){g+='<line x1="'+L+'" x2="'+(W-R+14)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#e3dcc8"/><text x="'+(L-8)+'" y="'+(Y(v)+4)+'" font-size="11" text-anchor="end" fill="#5f6f66">'+v+'</text>'});
+  function serie(c,cor,fill){
+    var vs=dias.map(function(d){return med(d.k,c)}),s='',run=[];
+    function fim(){if(run.length>1){var pts=run.map(function(i){return X(i).toFixed(1)+','+Y(vs[i]).toFixed(1)}).join(' ');
+      s+='<polygon points="'+X(run[0]).toFixed(1)+','+y0+' '+pts+' '+X(run[run.length-1]).toFixed(1)+','+y0+'" fill="'+fill+'"/><polyline fill="none" stroke="'+cor+'" stroke-width="2.5" points="'+pts+'"/>'}run=[]}
+    vs.forEach(function(v,i){if(v==null)fim();else run.push(i)});fim();
+    vs.forEach(function(v,i){if(v!=null)s+='<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="4.5" fill="#fff" stroke="'+cor+'" stroke-width="2.5"/>'});
+    var ul=-1;vs.forEach(function(v,i){if(v!=null)ul=i});
+    if(ul>=0){var v=vs[ul],lab=(Math.round(v*10)/10)+'/10',yy=Y(v);s+='<rect x="'+(W-R+16)+'" y="'+(yy-11)+'" width="40" height="22" rx="11" fill="'+cor+'"/><text x="'+(W-R+36)+'" y="'+(yy+4)+'" font-size="11.5" font-weight="700" text-anchor="middle" fill="#fff">'+lab+'</text>'}
+    return{s:s,vs:vs};
   }
-  var g='';[0,5,10].forEach(function(v){var y=T+(H-T-B)*(1-v/10);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="#e3dcc8"/><text x="'+(L-6)+'" y="'+(y+4)+'" font-size="10" text-anchor="end" fill="#5f6f66">'+v+'</text>'});
-  dias.forEach(function(d,i){g+='<text x="'+(L+i*(W-L-R)/6)+'" y="'+(H-6)+'" font-size="10" text-anchor="middle" fill="#5f6f66">'+d.w+'</text>'});
+  var sf=serie('fad','#d0a53a','rgba(208,165,58,.16)'),sd=serie('dor','#0f5a3e','rgba(15,90,62,.14)'),vazios=[];
+  dias.forEach(function(d,i){var tem=sf.vs[i]!=null||sd.vs[i]!=null;if(!tem){vazios.push(i);g+='<circle cx="'+X(i)+'" cy="'+y0+'" r="4.5" fill="#fff" stroke="#aaa" stroke-width="1.5"/>'}
+    g+='<text x="'+X(i)+'" y="'+(H-20)+'" font-size="11" text-anchor="middle" fill="#1d2b24">'+d.w+'</text><text x="'+X(i)+'" y="'+(H-6)+'" font-size="9.5" text-anchor="middle" fill="#5f6f66">'+d.k.slice(8)+'/'+d.k.slice(5,7)+'</text>'});
+  var sem=vazios.length?'<rect x="'+(X(vazios[0])+(vazios.length>1?10:-24))+'" y="'+(Y(5)-12)+'" width="70" height="22" rx="11" fill="#eee7d3"/><text x="'+(X(vazios[0])+(vazios.length>1?45:11))+'" y="'+(Y(5)+3)+'" font-size="11" text-anchor="middle" fill="#5f6f66">Sem dados</text>':'';
+  return'<div class="card"><div class="hh"><h2>'+IC.bars+'Minha evolução <small>· últimos 7 dias</small></h2><span class="lg"><i style="background:#0f5a3e"></i>Dor <i style="background:#d0a53a"></i>Fadiga</span></div>'+
+    '<svg class="ev" viewBox="0 0 '+W+' '+H+'">'+g+sem+sf.s+sd.s+'</svg></div>';
+}
+function evolTiles(p){
+  var dias=ultDias(7);
   var sv=p.diario.filter(function(x){return dias.some(function(d){return d.k===pDia(x.d)})&&x.sono}).map(function(x){return+x.sono}),
       sm=sv.length?sv.reduce(function(a,b){return a+b},0)/sv.length:null,
       sh=sm==null?'sem registro':Math.floor(sm)+'h '+pad(Math.round((sm%1)*60))+'min';
   var u=p.diario.length?p.diario[p.diario.length-1]:null,dg='Sem registro';
   if(u&&pDia(u.d)===isoHoje())dg=(u.pre||u.s!=='nenhum')?'Atenção hoje':'Sem alterações hoje';
-  var lp=p.diario.filter(function(x){return x.psis}).pop(),pr=lp?'<div class="tag '+((+lp.psis<90||+lp.pdia<60)?'t-hi':'t-ok')+'" style="margin-top:6px">Pressão '+lp.psis+'×'+lp.pdia+' ('+lp.d.slice(0,5)+')</div>':'';
-  return'<div class="card"><h2>📈 Dor e fadiga · últimos 7 dias</h2><svg class="ev" viewBox="0 0 '+W+' '+H+'">'+g+linha('dor','#0f5a3e')+linha('fad','#d0a53a')+'</svg>'+
-    '<div class="mut" style="text-align:center"><span style="color:#0f5a3e">●</span> Dor muscular &nbsp; <span style="color:#d0a53a">●</span> Fadiga</div>'+pr+'</div>'+
-    '<div class="two" style="margin-bottom:12px"><button class="tile" onclick="goTab(\'diario\')">'+IC.bed+'<span><b>Sono</b>'+sh+'<br><span class="mut">média dos últimos 7 dias</span></span></button>'+
+  var lp=p.diario.filter(function(x){return x.psis}).pop(),pr=lp?'<div class="tag '+((+lp.psis<90||+lp.pdia<60)?'t-hi':'t-ok')+'" style="margin-bottom:12px">Pressão '+lp.psis+'×'+lp.pdia+' ('+lp.d.slice(0,5)+')</div>':'';
+  return pr+'<div class="two" style="margin-bottom:12px"><button class="tile" onclick="goTab(\'diario\')">'+IC.bed+'<span><b>Sono</b>'+sh+'<br><span class="mut">média dos últimos 7 dias</span></span></button>'+
     '<button class="tile" onclick="goTab(\'diario\')">'+IC.stom+'<span><b>Sintomas digestivos</b>'+dg+'</span></button></div>'+
     urTile(p)+'<button class="tile" style="width:100%;margin-bottom:12px" onclick="goTab(\'diario\')">'+IC.hist+'<span><b>Histórico</b>Ver registros anteriores, sintomas e evolução</span></button>';
 }
+function comoHtml(p){
+  var d=p.diario.length?p.diario[p.diario.length-1]:null;
+  function m(ic,n,v){var x=d?(+v||0):'–';return'<div class="mi">'+ic+'<div><span>'+n+'</span><b>'+x+(d?'/10':'')+'</b></div><div class="mb"><i style="width:'+(d?(+v||0)*10:0)+'%"></i></div></div>'}
+  return'<div class="card"><div class="hh"><h2>'+IC.heart+'Como está hoje?</h2><span class="mut">'+(d?'Último registro: '+esc(d.d):'Sem registros')+'</span></div>'+
+    '<div class="mrow">'+m(IC.bolt,'Dor',d&&d.dor)+m(IC.wave,'Rigidez',d&&d.rig)+m(IC.batt,'Fadiga',d&&d.fad)+'<button class="btn nv" onclick="goTab(\'diario\')">＋<span>Novo registro</span></button></div></div>';
+}
+function doisLinks(p){
+  var hoje=isoHoje(),ag=p.agenda.filter(function(x){return x.d>=hoje}).sort(function(a,b){return(a.d+(a.h||'')).localeCompare(b.d+(b.h||''))})[0];
+  var ult={};p.exames.forEach(function(e){var o=ult[e.n];if(!o||dkey(e.d)>=dkey(o.d))ult[e.n]=e});
+  var ks=Object.keys(ult).map(function(k){return ult[k]}).sort(function(a,b){return dkey(b.d).localeCompare(dkey(a.d))});
+  return'<div class="g2"><button class="card lnk" onclick="goTab(\'agenda\')"><div class="hh"><h2>'+IC.cal+'Próximas consultas</h2></div><div class="mut">'+(ag?esc(ag.t)+' · '+isoBr(ag.d).slice(0,5)+(ag.h?' '+esc(ag.h):''):'Nada marcado.')+'</div><em>›</em></button>'+
+    '<button class="card lnk" onclick="goTab(\'exames\')"><div class="hh"><h2>'+IC.flask+'Exames e resultados</h2></div><div class="mut">'+(ks.length?esc(ks[0].n)+' · '+esc(ks[0].d):'Nenhum exame ainda.')+'</div><em>›</em></button></div>';
+}
 var MES=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+function lembResumo(){
+  var L=F().lembretes||[],pend=L.filter(function(x){return!x.feito});
+  var h='<div class="card"><div class="hh"><h2>'+IC.bell+'Lembretes <span class="cnt" style="margin-left:6px">'+pend.length+'</span></h2></div>';
+  if(!pend.length)h+='<div class="mut">Nenhum pendente.</div>';
+  pend.slice(0,4).forEach(function(x){h+='<div class="lit"><i></i><span>'+esc(x.t)+(x.d?' <span class="mut">'+isoBr(x.d).slice(0,5)+'</span>':'')+'</span></div>'});
+  return h+'<a class="lk" href="#" onclick="goTab(\'agenda\');return false">Ver todos ›</a></div>';
+}
 function resumoCards(p){
   var h='',hoje=isoHoje();
   var d=p.diario.length?p.diario[p.diario.length-1]:null;
@@ -353,9 +386,9 @@ function resumoCards(p){
   return h;
 }
 function vResumo(){
-  var p=P(),h=qkHtml()+alertaHtml()+'<div class="pg">'+IC.drop+'<div><h2>Hidratação e evolução</h2></div></div>'+aguaHtml(p)+evolHtml(p);
+  var p=P(),h=alertaHtml()+comoHtml(p)+aguaHtml(p)+evolChart(p)+doisLinks(p);
   if(syncTxt)h+='<p class="mut" style="margin:0 0 6px;text-align:right">'+esc(syncTxt)+'</p>';
-  h+=resumoCards(p);
+  h+=evolTiles(p)+qkHtml()+lembResumo();
   h+='<div class="card alert"><h2>⚠️ Procure urgência se houver</h2><ul style="margin:0;padding-left:18px">'+
      '<li>Grande quantidade de sangue nas fezes</li><li>Fezes pretas</li><li>Tontura ou desmaio</li><li>Fraqueza intensa</li>'+
      '<li>Dor abdominal forte, dor no peito ou falta de ar importante</li></ul></div>';
@@ -562,7 +595,7 @@ function addDia(){
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v14 · 15/11/2026';
+var APP_VER='v15 · 15/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+
