@@ -79,7 +79,9 @@ function abreMenu(){
 function fechaMenu(){document.getElementById('menu').classList.add('hide')}
 function render(keep){
   var v=document.getElementById('view');
-  var fn={resumo:vResumo,importar:vImportar,exames:vExames,diario:vDiario,agenda:vAgenda,consulta:vConsulta,remedios:vRemedios,google:vGoogle,config:vConfig}[tab];
+  var fn={resumo:vResumo,importar:vImportar,exames:vExames,diario:vDiario,historico:vHistorico,detalhe:vDetalhe,agenda:vAgenda,consulta:vConsulta,remedios:vRemedios,google:vGoogle,config:vConfig}[tab];
+  var nv={diario:'historico',detalhe:'historico'}[tab]||tab;
+  [].forEach.call(document.getElementById('nav').children,function(x){x.classList.toggle('on',x.dataset.t===nv)});
   v.innerHTML=fn();
   atualizaBadge();
   if(tab==='agenda'&&window.autoDisp)autoDisp();
@@ -332,7 +334,7 @@ function evolTiles(p){
   var lp=p.diario.filter(function(x){return x.psis}).pop(),pr=lp?'<div class="tag '+((+lp.psis<90||+lp.pdia<60)?'t-hi':'t-ok')+'" style="margin-bottom:12px">Pressão '+lp.psis+'×'+lp.pdia+' ('+lp.d.slice(0,5)+')</div>':'';
   return pr+'<div class="two" style="margin-bottom:12px"><button class="tile" onclick="goTab(\'diario\')">'+IC.bed+'<span><b>Sono</b>'+sh+'<br><span class="mut">média dos últimos 7 dias</span></span></button>'+
     '<button class="tile" onclick="goTab(\'diario\')">'+IC.stom+'<span><b>Sintomas digestivos</b>'+dg+'</span></button></div>'+
-    urTile(p)+'<button class="tile" style="width:100%;margin-bottom:12px" onclick="goTab(\'diario\')">'+IC.hist+'<span><b>Histórico</b>Ver registros anteriores, sintomas e evolução</span></button>';
+    urTile(p)+'<button class="tile" style="width:100%;margin-bottom:12px" onclick="goTab(\'historico\')">'+IC.hist+'<span><b>Histórico</b>Ver registros anteriores, sintomas e evolução</span></button>';
 }
 function comoHtml(p){
   var d=p.diario.length?p.diario[p.diario.length-1]:null;
@@ -543,7 +545,7 @@ function togGat(i){var s=GAT[i];if(selGat[s])delete selGat[s];else selGat[s]=1;d
 function gatBox(){return'<div class="chips">'+GAT.map(function(s,i){return'<button type="button" class="chip'+(selGat[s]?' on':'')+'" onclick="togGat('+i+')">'+s+'</button>'}).join('')+'</div>'}
 function vDiario(){
   var p=P(),d=new Date();
-  var h='<div class="pg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><div><h2>Diário de hoje</h2><p class="mut">'+DSEMLONG[d.getDay()]+', '+d.getDate()+' de '+MESES[d.getMonth()]+'</p></div></div>'+
+  var h='<div class="pg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><div><h2>Diário de hoje</h2><p class="mut">'+DSEMLONG[d.getDay()]+', '+d.getDate()+' de '+MESES[d.getMonth()]+'</p></div><a href="#" style="margin-left:auto;font-weight:700" onclick="goTab(\'historico\');return false">Histórico ›</a></div>'+
   '<div class="card"><h2>Como você está?</h2>'+sl('dor','Dor muscular')+sl('rig','Rigidez')+sl('fad','Fadiga')+sl('res','Falta de ar')+'</div>'+
   '<div class="card"><h2>Sintomas de hoje</h2><div id="sintbox">'+sintBox()+'</div></div>'+
   '<div class="card"><h2>Onde dói?</h2><textarea id="donde" rows="2" placeholder="Ex.: costas, ombro, joelho..."></textarea></div>'+
@@ -590,12 +592,13 @@ function addDia(){
   if(grave)alert('Atenção: esses sinais podem exigir avaliação urgente. Procure um pronto atendimento.');
   else if(baixa||tv)alert('Pressão baixa ou tontura com visão embaçada: sente ou deite um pouco, beba água e avise o médico. Se piorar ou desmaiar, procure atendimento.');
   else toast('Registro salvo.');
+  if(window.G&&G.connected())G.syncSheets(S.cur,sheetTabs(P())).then(function(){toast('Registro salvo e enviado ao Drive.')}).catch(function(){});
 }
 
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v15 · 15/11/2026';
+var APP_VER='v16 · 15/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+
@@ -1348,6 +1351,111 @@ if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){
   var jaTinha=!!navigator.serviceWorker.controller,recarregou=false;
   navigator.serviceWorker.addEventListener('controllerchange',function(){if(jaTinha&&!recarregou){recarregou=true;toast('Versão nova instalada. Reabrindo…');setTimeout(function(){location.reload()},900)}});
   navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+
+
+/* ================= Histórico e detalhes ================= */
+var hMes=null,hDia=isoHoje(),hFiltro='todos',detI=-1,compOn=false;
+function regCrise(x){var u=x.uri||{sint:[]};return!!(x.pre||x.tont||x.s==='muito'||+x.res>=7||+x.dor>=8||u.cor==='Avermelhada'||(u.sint||[]).indexOf('Não consegui urinar')>=0||+u.dif>=8||(+x.psis&&+x.psis<90)||(+x.pdia&&+x.pdia<60))}
+function regSint(x){return!!((x.sint&&Object.keys(x.sint).length)||(x.uri&&x.uri.sint&&x.uri.sint.length))}
+function nivelTx(n){n=+n||0;return n<=3?['Leve','t-ok']:n<=6?['Moderada','t-lim']:['Intensa','t-hi']}
+function regsDoDia(p,dia,f){
+  var r=[];p.diario.forEach(function(x,i){if(pDia(x.d)!==dia)return;if(f==='crises'&&!regCrise(x))return;if(f==='sintomas'&&!regSint(x))return;r.push(i)});
+  return r.sort(function(a,b){return p.diario[b].d.slice(11).localeCompare(p.diario[a].d.slice(11))});
+}
+function vHistorico(){
+  var p=P(),n=new Date();if(!hMes)hMes={a:n.getFullYear(),m:n.getMonth()};
+  var h='<div class="card"><div class="hh" style="margin:0"><h2>'+IC.hist+'<span>Histórico de saúde<br><small style="font-weight:500">Veja seus registros e acompanhe sua evolução</small></span></h2></div>'+
+    '<button class="btn" style="width:100%" onclick="goTab(\'diario\')">＋ Novo registro</button></div>';
+  var com={};p.diario.forEach(function(x){if(hFiltro==='crises'&&!regCrise(x))return;if(hFiltro==='sintomas'&&!regSint(x))return;com[pDia(x.d)]=1});
+  var prim=new Date(hMes.a,hMes.m,1),off=(prim.getDay()+6)%7,dm=new Date(hMes.a,hMes.m+1,0).getDate(),dprev=new Date(hMes.a,hMes.m,0).getDate();
+  h+='<div class="card"><div class="cal-h"><button onclick="histMes(-1)" aria-label="Mês anterior">'+IC.back+'</button><b>'+MESES[hMes.m].charAt(0).toUpperCase()+MESES[hMes.m].slice(1)+' de '+hMes.a+'</b><button onclick="histMes(1)" aria-label="Próximo mês" style="transform:scaleX(-1)">'+IC.back+'</button></div><div class="cal">';
+  ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].forEach(function(d){h+='<span class="w">'+d+'</span>'});
+  var tot=Math.ceil((off+dm)/7)*7;
+  for(var i=0;i<tot;i++){
+    var dnum=i-off+1;
+    if(dnum<1)h+='<span class="o">'+(dprev+dnum)+'</span>';
+    else if(dnum>dm)h+='<span class="o">'+(dnum-dm)+'</span>';
+    else{var iso=hMes.a+'-'+pad(hMes.m+1)+'-'+pad(dnum);h+='<button class="d'+(iso===hDia?' sel':'')+(iso===isoHoje()?' hoje':'')+(com[iso]?' tem':'')+'" onclick="histDia(\''+iso+'\')">'+dnum+'</button>'}
+  }
+  h+='</div><div class="fil">'+[['todos','Todos',IC.bars],['crises','Crises',IC.warn],['sintomas','Sintomas',IC.heart]].map(function(f){return'<button class="'+(hFiltro===f[0]?'on':'')+'" onclick="histFil(\''+f[0]+'\')">'+f[2]+f[1]+'</button>'}).join('')+'</div></div>';
+  var dd=hDia.split('-');h+='<h3 class="dtit">'+(+dd[2])+' de '+MESES[+dd[1]-1]+' de '+dd[0]+'</h3>';
+  var rs=regsDoDia(p,hDia,hFiltro);
+  if(!rs.length)h+='<div class="card empty">Nenhum registro neste dia'+(hFiltro!=='todos'?' para este filtro':'')+'.</div>';
+  rs.forEach(function(i){var x=p.diario[i],hr=+x.d.slice(11,13),dia=hr>=6&&hr<18;
+    h+='<div class="rg"><span class="ic '+(dia?'sol':'lua')+'">'+(dia?IC.sun:IC.moon)+'</span><b>'+x.d.slice(11)+'</b><div class="m"><span>'+IC.bolt+'Dor</span><b>'+(x.dor||0)+'/10</b></div><div class="m"><span>'+IC.batt+'Fadiga</span><b>'+(x.fad||0)+'/10</b></div>'+(regCrise(x)?'<span class="tag t-hi">atenção</span>':'')+'<button class="btn nv" onclick="verDet('+i+')">Ver detalhes ›</button></div>';
+  });
+  h+='<div class="card"><h2>☁ Registros no Drive</h2><p class="mut" style="margin:0 0 6px">Cada registro novo é enviado para a planilha de '+esc(p.nome.split(' ')[0])+' na pasta <b>Saúde a Dois › '+esc(p.nome.split(' ')[0])+' › Registros</b>. Os relatórios em Doc ficam em <b>Relatórios</b>.</p>'+
+     (window.G&&G.connected()?'<button class="btn sec" onclick="gaSheets()">Enviar planilha agora</button><p id="gmsg" class="mut"></p>':'<p class="mut" style="margin:0">Conecte o Google em ⚙ Configurações para enviar ao Drive.</p>')+'</div>';
+  return h;
+}
+function histMes(d){var m=hMes.m+d,a=hMes.a;if(m<0){m=11;a--}if(m>11){m=0;a++}hMes={a:a,m:m};render(true)}
+function histDia(iso){hDia=iso;render(true)}
+function histFil(f){hFiltro=f;render(true)}
+function verDet(i){detI=i;compOn=false;goTab('detalhe')}
+function chipsTx(a){return a.length?'<div class="chips">'+a.map(function(s){return'<span class="chip">'+esc(s)+'</span>'}).join('')+'</div>':''}
+function regHtml(x,p){
+  var u=x.uri||{sint:[]},sn=x.sint?Object.keys(x.sint).map(function(k){return k+' '+x.sint[k]+'/10'}):[],L=[];
+  L.push('<h2>Registro de saúde — '+esc(p.nome)+'</h2><p><b>'+esc(x.d)+'</b></p>');
+  L.push('<h3>Como estava</h3><ul><li>Dor muscular: '+(x.dor||0)+'/10</li><li>Rigidez: '+(x.rig||0)+'/10</li><li>Fadiga: '+(x.fad||0)+'/10</li><li>Falta de ar: '+(x.res||0)+'/10</li></ul>');
+  if(sn.length)L.push('<h3>Sintomas associados</h3><ul>'+sn.map(function(s){return'<li>'+esc(s)+'</li>'}).join('')+'</ul>');
+  if(x.onde)L.push('<p><b>Onde dói:</b> '+esc(x.onde)+'</p>');
+  var ur=[];if(u.dif!==''&&u.dif!=null)ur.push('Dificuldade para urinar: '+u.dif+'/10');if(u.cor)ur.push('Cor: '+esc(u.cor));if(u.qtd)ur.push('Quantidade: '+esc(u.qtd));if(u.ml)ur.push('Total: '+u.ml+' ml');if(u.vez)ur.push('Vezes ao banheiro: '+u.vez);(u.sint||[]).forEach(function(s){ur.push(esc(s))});if(u.obs)ur.push('Obs.: '+esc(u.obs));
+  if(ur.length)L.push('<h3>Urina</h3><ul>'+ur.map(function(s){return'<li>'+s+'</li>'}).join('')+'</ul>');
+  var ou=[];if(x.psis)ou.push('Pressão: '+x.psis+'×'+x.pdia);if(x.sono)ou.push('Sono: '+x.sono+' h');if(x.s&&x.s!=='nenhum')ou.push('Sangue nas fezes: '+esc(x.s));if(x.pre)ou.push('Fezes pretas');if(x.tont)ou.push('Tontura forte ou desmaio');
+  if(ou.length)L.push('<h3>Outros dados</h3><ul>'+ou.map(function(s){return'<li>'+s+'</li>'}).join('')+'</ul>');
+  if(x.gat&&x.gat.length)L.push('<h3>Possíveis gatilhos</h3><p>'+esc(x.gat.join(', '))+'</p>');
+  if(x.obs)L.push('<h3>Observações</h3><p>'+esc(x.obs)+'</p>');
+  L.push('<p><i>Registro feito no app Saúde a Dois. Não substitui avaliação médica.</i></p>');
+  return L.join('');
+}
+function vDetalhe(){
+  var p=P(),x=p.diario[detI];
+  if(!x)return'<div class="card empty">Registro não encontrado.<br><button class="btn" onclick="goTab(\'historico\')">Voltar ao histórico</button></div>';
+  var u=x.uri||{sint:[]},nd=nivelTx(x.dor),nf=nivelTx(x.fad);
+  var h='<div class="dt"><button class="lock" style="color:var(--g)" onclick="goTab(\'historico\')" aria-label="Voltar">'+IC.back+'</button><h2>Detalhes do registro</h2></div>'+
+    '<div class="card" style="padding:10px 14px"><b>'+IC.cal.replace('<svg','<svg style="width:20px;height:20px;vertical-align:-4px;margin-right:8px"')+esc(x.d.replace(' ',' • '))+'</b></div>'+
+    '<div class="g2"><div class="card big2">'+IC.bolt+'<div><span>Dor</span><b>'+(x.dor||0)+' / 10</b></div><span class="tag '+nd[1]+'">'+nd[0]+'</span></div>'+
+    '<div class="card big2">'+IC.batt+'<div><span>Fadiga</span><b>'+(x.fad||0)+' / 10</b></div><span class="tag '+nf[1]+'">'+nf[0]+'</span></div></div>'+
+    '<div class="card"><div class="mut">Rigidez <b>'+(x.rig||0)+'/10</b> · Falta de ar <b>'+(x.res||0)+'/10</b>'+(x.psis?' · Pressão <b>'+x.psis+'×'+x.pdia+'</b>':'')+(x.sono?' · Sono <b>'+x.sono+' h</b>':'')+'</div></div>';
+  var sn=x.sint?Object.keys(x.sint).map(function(k){return k+' '+x.sint[k]}):[];
+  if(sn.length)h+='<div class="card"><h2>'+IC.heart+'Sintomas associados</h2>'+chipsTx(sn)+(x.onde?'<p class="mut" style="margin:8px 0 0">Onde dói: '+esc(x.onde)+'</p>':'')+'</div>';
+  var temUr=u.dif||u.cor||u.qtd||u.ml||u.vez||(u.sint||[]).length||u.obs;
+  if(temUr){
+    var nu=nivelTx(u.dif);
+    h+='<div class="card"><h2>'+IC.drop+'Sintomas urinários</h2>'+
+      '<div class="aviso '+(+u.dif>=7?'ruim':'')+'">'+IC.warn+'<b>Dificuldade para urinar: '+(u.dif||0)+'/10 ('+nu[0].toLowerCase()+')</b></div>'+
+      '<div class="mut" style="margin:6px 0">'+[u.cor?'Cor: '+esc(u.cor.toLowerCase()):'',u.qtd?'Quantidade: '+esc(u.qtd.toLowerCase()):'',u.ml?u.ml+' ml':'',u.vez?u.vez+' vez(es) ao banheiro':''].filter(Boolean).join(' · ')+'</div>'+chipsTx(u.sint||[])+(u.obs?'<p class="mut" style="margin:6px 0 0">'+esc(u.obs)+'</p>':'')+'</div>';
+  }
+  if(x.gat&&x.gat.length)h+='<div class="card"><h2>'+IC.bolt+'Possíveis gatilhos</h2>'+chipsTx(x.gat)+'</div>';
+  var ob=[x.obs,x.pre?'Fezes pretas':'',x.tont?'Tontura forte ou desmaio':'',x.s&&x.s!=='nenhum'?'Sangue nas fezes: '+x.s:''].filter(Boolean);
+  if(ob.length)h+='<div class="card"><h2>💬 Observações</h2><div class="obs">'+ob.map(esc).join('<br>')+'</div></div>';
+  if(compOn){
+    var ant=null;for(var j=detI-1;j>=0;j--){ant=p.diario[j];break}
+    h+='<div class="card"><h2>'+IC.bars+'Comparar com o registro anterior</h2>';
+    if(!ant)h+='<div class="mut">Este é o primeiro registro.</div>';
+    else{
+      function lin(n,a,b){a=+a||0;b=+b||0;var d=a-b;return'<tr><td>'+n+'</td><td>'+b+'</td><td>'+a+'</td><td>'+(d>0?'▲ +'+d:d<0?'▼ '+d:'=')+'</td></tr>'}
+      h+='<table><tr><th></th><th>'+esc(ant.d.slice(0,5)+' '+ant.d.slice(11))+'</th><th>Este</th><th></th></tr>'+lin('Dor',x.dor,ant.dor)+lin('Rigidez',x.rig,ant.rig)+lin('Fadiga',x.fad,ant.fad)+lin('Falta de ar',x.res,ant.res)+lin('Dificuldade urinar',u.dif,(ant.uri||{}).dif)+'</table>';
+    }
+    h+='</div>';
+  }
+  h+='<div class="row"><button class="btn sec" onclick="compOn=!compOn;render(true)">'+IC.bars+' Comparar</button><button class="btn" onclick="exportaReg()">'+IC.doc+' Exportar PDF</button></div>'+
+    '<button class="btn sec" style="width:100%" onclick="regDrive()">☁ Salvar relatório no Drive</button><p id="gmsg" class="mut"></p>'+
+    '<div class="card aviso2"><b>Em caso de dor intensa, dificuldade persistente para urinar, desmaio ou piora, procure um profissional de saúde.</b></div>'+
+    '<div class="onlyprint sheet">'+regHtml(x,p)+'</div>';
+  return h;
+}
+function exportaReg(){toast('Na janela que abrir, escolha “Salvar como PDF”.');setTimeout(function(){window.print()},500)}
+function regDrive(){
+  var p=P(),x=p.diario[detI];if(!x)return;
+  if(!(window.G&&G.connected()))return gmsg('Conecte o Google em ⚙ Configurações primeiro.');
+  gmsg('Enviando ao Drive…');
+  var nome='Registro '+x.d.slice(6,10)+'-'+x.d.slice(3,5)+'-'+x.d.slice(0,2)+' '+x.d.slice(11).replace(':','h')+' — '+p.nome.split(' ')[0];
+  G.saveDoc(S.cur,'Relatórios',nome,'<html><body>'+regHtml(x,p)+'</body></html>').then(function(r){
+    var e=document.getElementById('gmsg');if(e)e.innerHTML='Salvo em Saúde a Dois › '+esc(p.nome.split(' ')[0])+' › Relatórios. <a href="'+esc(r.url)+'" target="_blank" rel="noopener">Abrir</a>';
+    toast('Relatório salvo no Drive.');
+  }).catch(function(e){gmsg(e.message)});
 }
 
 pintaIcones();

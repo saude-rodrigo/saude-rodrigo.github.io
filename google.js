@@ -151,6 +151,13 @@
     });
   }
 
+  // Cria um Google Doc (a partir de HTML) em  Saúde a Dois / Pessoa / <subpasta>
+  function saveDoc(perfil, subpasta, nome, html) {
+    return need().then(function () { return sub(perfil, subpasta); }).then(function (pasta) {
+      return multipart({ name: nome, parents: [pasta], mimeType: 'application/vnd.google-apps.document' }, new Blob([html], { type: 'text/html' }), 'text/html');
+    }).then(function (r) { r.url = 'https://docs.google.com/document/d/' + r.id + '/edit'; return r; });
+  }
+
   /* ---------- Planilhas (registros legíveis) ---------- */
   function criarPlanilha(perfil, tabs) {
     return api('https://sheets.googleapis.com/v4/spreadsheets', {
@@ -336,7 +343,7 @@
 
   window.G = {
     configured: configured, connected: connected, connect: connect, silent: silent, disconnect: disconnect,
-    uploadOriginal: uploadOriginal, syncSheets: syncSheets, push: push, pull: pull, share: share,
+    uploadOriginal: uploadOriginal, saveDoc: saveDoc, syncSheets: syncSheets, push: push, pull: pull, share: share,
     createEvent: createEvent, deleteEvent: deleteEvent, freeBusy: freeBusy, listCalendars: listCalendars, listBusy: listBusy, limparCache: limparCache
   };
 })();

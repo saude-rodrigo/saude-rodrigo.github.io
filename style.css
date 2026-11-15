@@ -150,3 +150,44 @@ nav button.on .i{color:#fff}
 .btn.nv span{max-width:54px}
 .hh h2{white-space:nowrap}
 .hh>.mut{font-size:11px;text-align:right}
+
+/* v16 — histórico e detalhes */
+.cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-h button{border:0;background:none;color:var(--ink);width:36px;height:30px}.cal-h svg{width:20px;height:20px}
+.cal-h b{font-size:17px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.cal .w{font-size:12.5px;color:var(--mut);padding:4px 0}
+.cal .o{color:#b9b5a4;padding:9px 0;font-size:15px}
+.cal .d{border:0;background:none;font:inherit;font-size:15px;color:var(--ink);padding:9px 0;border-radius:50%;position:relative}
+.cal .d.tem::after{content:"";position:absolute;left:50%;bottom:2px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--g)}
+.cal .d.hoje{box-shadow:inset 0 0 0 1.5px var(--gold)}
+.cal .d.sel{background:var(--g);color:#fff;font-weight:700}.cal .d.sel::after{background:#fff}
+.fil{display:flex;gap:8px;margin-top:10px}
+.fil button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:9px 4px;border-radius:20px;font:inherit;font-size:14px}
+.fil button svg{width:18px;height:18px}
+.fil button.on{background:var(--g);color:#fff;border-color:var(--g)}
+.dtit{margin:4px 2px 8px;font-size:17px;border-left:4px solid var(--gold);padding-left:8px}
+.rg{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px 10px;margin-bottom:8px;flex-wrap:wrap}
+.rg .ic{width:30px;height:30px;display:grid;place-items:center;flex:none}.rg .ic svg{width:26px;height:26px}
+.rg .sol{color:#e0a52c}.rg .lua{color:var(--g)}
+.rg .m{border-left:1px solid var(--line);padding-left:8px;font-size:13px;line-height:1.2}
+.rg .m span{display:flex;align-items:center;gap:3px;color:var(--mut)}.rg .m svg{width:14px;height:14px}
+.rg .m b{font-size:15px}
+.rg .btn.nv{margin-left:auto;padding:9px 12px;font-size:13px}
+.rg .btn.nv span{max-width:none}
+.dt{display:flex;align-items:center;gap:6px;margin:0 0 10px}.dt h2{margin:0;font-size:21px}
+.big2{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px}
+.big2>svg{width:34px;height:34px;color:var(--g)}
+.big2 div span{display:block;font-weight:600;font-size:15px}.big2 div b{font-size:23px}
+.big2 .tag{flex-basis:100%;text-align:center;padding:5px;font-size:14px}
+.aviso{display:flex;align-items:center;gap:8px;background:#fbeccb;border-radius:12px;padding:10px}
+.aviso svg{width:22px;height:22px;color:#c07a00;flex:none}.aviso.ruim{background:#fbdcd8}
+.obs{background:#f2ecdb;border-radius:12px;padding:10px}
+.aviso2{background:#fbeccb;border-color:#ecd49b}
+.onlyprint{display:none}
+@media print{main>*:not(.onlyprint){display:none!important}.onlyprint{display:block!important}}
+.card h2>svg,h2>svg{width:22px;height:22px;vertical-align:-4px;margin-right:6px;color:var(--g)}
+.btn svg{width:18px;height:18px;vertical-align:-3px;margin-right:4px}
+.tag svg{width:14px;height:14px}
+.fil button svg{width:18px;height:18px}
+.pg svg{width:34px;height:34px}
