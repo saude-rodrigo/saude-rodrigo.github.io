@@ -74,7 +74,7 @@ function doBusca(v){
 /* ---------- INÍCIO ---------- */
 function rowIn(ic,t,sub,pill,fn){return'<button class="rin" onclick="'+fn+'"><span class="si">'+ic+'</span><span class="sb"><b>'+t+'</b><span>'+sub+'</span></span>'+(pill||'')+'<em>›</em></button>'}
 function vInicio(){
-  var p=P(),hoje=isoHoje(),h='<div class="hello"><h2>Olá, '+esc(nome1(p))+'</h2></div>'+alertaHtml();
+  var p=P(),hoje=isoHoje(),h='<div class="hello"><h2>Olá, '+esc(nome1(p))+'</h2></div>'+emergCard(p)+alertaHtml();
   var ag=p.agenda.filter(function(x){return x.d>=hoje}).sort(function(a,b){return(a.d+(a.h||'')).localeCompare(b.d+(b.h||''))})[0];
   var u=p.diario.length?p.diario[p.diario.length-1]:null;
   h+='<div class="card rows">'+

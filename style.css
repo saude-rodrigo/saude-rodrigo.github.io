@@ -280,3 +280,19 @@ body.pbarOn{}
 .pname{flex:1;min-width:0;border:0;background:none;text-align:left;font:inherit;padding:2px 0;color:var(--ink)}.pname b{font-size:15px}.pname span{display:block;font-size:13px;color:var(--mut)}
 .prow .sp{flex:none}
 textarea{width:100%;font:inherit;border:1.5px solid var(--line);border-radius:12px;padding:9px;background:var(--card);color:var(--ink)}
+
+/* v29 emergência */
+.emc{background:#fdeceb;border:1.5px solid #e08a84;border-radius:18px;padding:12px 14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(179,38,30,.12)}
+.emh{display:flex;gap:10px;align-items:center}.emh svg{width:34px;height:34px;color:var(--bad);flex:none}.emh b{display:block;font-size:22px;color:var(--bad);font-family:Georgia,serif}.emh span{font-size:13px;color:var(--ink)}
+.eml{display:flex;gap:8px;align-items:center;margin:8px 0;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.55);color:var(--ink)}.eml svg{width:22px;height:22px;color:var(--bad);flex:none}.eml.hi b{color:var(--bad);font-size:16px}
+.emb{width:100%;display:flex;justify-content:space-between;align-items:center;border:0;background:var(--bad);color:#fff;border-radius:14px;padding:12px 14px;font:inherit;font-weight:700}.emb em{font-style:normal;font-size:20px}
+#emv{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;overflow:auto;padding:10px}
+.emv-box{position:relative;background:var(--bg);max-width:560px;margin:0 auto;border-radius:20px;padding:16px;border:2px solid var(--bad)}
+.emx{position:absolute;right:10px;top:6px;border:0;background:none;font-size:30px;color:var(--ink)}
+.emv-h{display:flex;gap:8px;align-items:center;color:var(--bad);font-size:18px}.emv-h svg{width:26px;height:26px}
+.emsec{margin-top:10px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:14px}.emsec h3{margin:0 0 4px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--g)}
+.emsec.hi{background:#fdeceb;border-color:#e08a84}.emsec.hi h3{color:var(--bad)}.ema b{font-size:20px;color:var(--bad)}.ema span{color:var(--mut);font-size:13px}.ema{margin-bottom:4px}
+.emact .btn{flex:1 1 40%;text-align:center;text-decoration:none;display:inline-flex;justify-content:center;align-items:center}
+.emh3{margin:12px 0 4px;font-size:14px;color:var(--g);text-transform:uppercase}
+.ema2{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding:8px;border:1px solid var(--line);border-radius:12px}.ema2 input,.ema2 select{flex:1 1 45%;margin:0}
+@media print{#emv{position:static;background:none}.emact,.emx{display:none}}

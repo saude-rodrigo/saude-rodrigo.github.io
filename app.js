@@ -46,6 +46,7 @@ function showLock(){
   document.getElementById('lockscr').classList.remove('hide');
   document.getElementById('locks').textContent=S.pin?'Digite seu PIN':'Crie um PIN de 4 a 6 números';
   document.getElementById('pin').value='';
+  if(window.emBloqueioBtn)emBloqueioBtn();
 }
 function unlock(){
   var v=document.getElementById('pin').value;
@@ -421,7 +422,7 @@ function addDia(){
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v28 · 19/11/2026';
+var APP_VER='v29 · 19/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+

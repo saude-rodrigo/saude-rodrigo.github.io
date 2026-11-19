@@ -366,6 +366,7 @@ function mergeFicha(p,f){
     var y=JSON.parse(JSON.stringify(x));delete y.alias;p.pend.push(y);n.pend++});
   if(!p.espec)p.espec={};Object.keys(f.espec||{}).forEach(function(k){var l=p.espec[k]=p.espec[k]||[];f.espec[k].forEach(function(x){if(l.indexOf(x)<0){l.push(x);n.espec++}})});
   if(!p.perg)p.perg={};Object.keys(f.perg||{}).forEach(function(k){var l=p.perg[k]=p.perg[k]||(ESP[k]?ESP[k].q.slice():[]);f.perg[k].forEach(function(x){if(!l.some(function(y){return norm(y)===norm(x)})){l.push(x);n.perg++}})});
+  if(f.emerg){var em=emD(p);(f.emerg.reacoes||[]).forEach(function(a){if(em.reacoes.some(function(y){return norm(y.n)===norm(a.n)}))return;em.reacoes.push(a);n.alerg=(n.alerg||0)+1});(f.emerg.alergias||[]).forEach(function(a){if(em.alergias.some(function(y){return norm(y.n)===norm(a.n)}))return;em.alergias.push(a);n.alerg=(n.alerg||0)+1});['sangue','obs'].forEach(function(k){if(f.emerg[k]&&!em[k])em[k]=f.emerg[k]});if(f.emerg.contato&&!em.contato.nome&&!em.contato.tel)em.contato=f.emerg.contato}
   if(!p.agenda)p.agenda=[];(f.agendaRemover||[]).forEach(function(x){var a=p.agenda.filter(function(y){return y.t===x.t&&y.d===x.d&&y.h===x.h});a.forEach(function(y){logAnt('agenda',y);p.agenda.splice(p.agenda.indexOf(y),1);n.removidas=(n.removidas||0)+1})});(f.agenda||[]).forEach(function(x){var yy=null;p.agenda.forEach(function(y){if(y.t===x.t&&y.d===x.d&&y.h===x.h)yy=y});if(yy){if(x.gid&&!yy.gid){yy.gid=x.gid;delete yy.gpend;n.atual=(n.atual||0)+1}return}p.agenda.push(JSON.parse(JSON.stringify(x)));n.agenda=(n.agenda||0)+1});
   p.agenda.sort(function(a,b){return(a.d+a.h)<(b.d+b.h)?-1:1});
   return n;
@@ -378,7 +379,7 @@ function importaFicha(inp){
     if(j.pessoa&&j.pessoa!==S.cur){alert('Esta ficha é do perfil “'+j.pessoa+'”. Troque para esse perfil antes de importar.');return}
     if(!confirm('Importar a ficha para '+P().nome+'? Nada será apagado e itens que já existem não são duplicados.'))return;
     var n=mergeFicha(P(),j);save();render(true);
-    toast('Ficha importada: '+n.diag+' diagnósticos, '+n.meds+' medicamentos, '+n.sint+' sintomas novos'+(n.atual?', '+n.atual+' atualizados':'')+', '+n.pend+' exames em avaliação'+(n.agenda?', '+n.agenda+' consulta(s) agendada(s)':'')+(n.removidas?', '+n.removidas+' consulta(s) corrigida(s)':'')+'.');
+    toast('Ficha importada: '+n.diag+' diagnósticos, '+n.meds+' medicamentos, '+n.sint+' sintomas novos'+(n.atual?', '+n.atual+' atualizados':'')+', '+n.pend+' exames em avaliação'+(n.agenda?', '+n.agenda+' consulta(s) agendada(s)':'')+(n.removidas?', '+n.removidas+' consulta(s) corrigida(s)':'')+(n.alerg?', '+n.alerg+' item(ns) de emergência':'')+'.');
   });
   inp.value='';
 }
@@ -658,7 +659,7 @@ function vSaude(){
   var p=P();
   if(saudeSec)return saudeSub(p);
   return'<div class="pg">'+IC.heart+'<div><h2 style="font-size:28px;font-family:Georgia,serif">Saúde</h2><p class="mut">Acompanhamento clínico de '+esc(nome1(p))+'</p></div></div>'+
-    '<div class="srch">'+IC.search+'<input id="busca" type="search" placeholder="Pesquisar no prontuário" value="'+esc(qBusca)+'" oninput="doBusca(this.value)" autocomplete="off"></div>'+
+    emergCard(p)+'<div class="srch">'+IC.search+'<input id="busca" type="search" placeholder="Pesquisar no prontuário" value="'+esc(qBusca)+'" oninput="doBusca(this.value)" autocomplete="off"></div>'+
     '<div id="bres">'+(qBusca.trim()?buscaHtml(p,qBusca):'')+'</div><div id="sechome" class="'+(qBusca.trim()?'hide':'')+'">'+
     '<div class="row wrap" style="margin-bottom:8px"><button class="btn" onclick="goAdd(\'med\')">'+IC.pill+' Adicionar medicamento</button><button class="btn" onclick="goAdd(\'sint\')">'+IC.wave+' Registrar sintoma</button></div>'+
     '<div class="row wrap" style="margin-bottom:10px"><button class="btn sec" onclick="goCons(\'preparar\')">Preparar consulta</button><button class="btn sec" onclick="document.getElementById(\'busca\').focus()">Atualizar informação</button></div>'+secCards(p)+'</div>';
@@ -1100,6 +1101,172 @@ function vAgendados(p){
   if(semData)h+='<div class="card"><div class="mut">'+semData+' exame(s) solicitado(s) ainda <b>sem data marcada</b>.</div><button class="btn sm sec" style="margin-top:6px" onclick="goSaude(\'exames\')">Marcar datas</button></div>';
   return h;
 }
+/* =====================================================================
+   v29 — Ficha de Emergência (por paciente)
+   ===================================================================== */
+var EM_TIPOS=[['medicamento','Medicamento'],['alimento','Alimento'],['outra','Outra substância']],SANGUE=['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+function emD(p){if(!p.emerg)p.emerg={alergias:[],contato:{nome:'',tel:'',rel:''},sangue:'',obs:'',semAlergias:'',diagOff:{},bloqueio:false};if(!p.emerg.alergias)p.emerg.alergias=[];if(!p.emerg.reacoes)p.emerg.reacoes=[];if(!p.emerg.contato)p.emerg.contato={nome:'',tel:'',rel:''};if(!p.emerg.diagOff)p.emerg.diagOff={};return p.emerg}
+function emMeds(p){return(p.meds||[]).filter(function(m){return m.sit==='confirmado'})}
+function emMedsPend(p){return(p.meds||[]).filter(function(m){return m.sit!=='confirmado'}).length}
+function emDiag(p){var e=emD(p);return(p.diag||[]).filter(function(x){return!x.fim&&(x.tipo==='conf'||x.tipo==='rel')&&!e.diagOff[norm(x.n)]})}
+function emIdade(p){var i=idadeDe(p.nasc);return i===''?'':i+' anos'}
+function emAlergiaResumo(p){
+  var e=emD(p),al=e.alergias;
+  if(al.length){var med=al.filter(function(a){return a.tipo==='medicamento'}).map(function(a){return a.n});
+    var out=al.filter(function(a){return a.tipo!=='medicamento'}).map(function(a){return a.n});
+    var t=[];if(med.length)t.push('Alergia medicamentosa: '+med.join(', '));if(out.length)t.push('Outras alergias: '+out.join(', '));return{ok:true,txt:t.join(' · ')}}
+  if(e.semAlergias)return{ok:true,neutro:true,txt:'Sem alergias conhecidas (confirmado em '+e.semAlergias+')'};
+  return{ok:false,txt:'Alergias: Não informado'};
+}
+function emergCard(p){
+  var r=emAlergiaResumo(p);
+  return'<div class="emc"><div class="emh">'+IC.warn+'<div><b>Emergência</b><span>Informações importantes em caso de urgência</span></div></div>'+
+    '<div class="eml'+(r.ok&&!r.neutro?' hi':'')+'">'+(r.ok&&!r.neutro?IC.warn:'')+'<b>'+esc(r.txt)+'</b></div>'+
+    emReacCard(p)+
+    '<button class="emb" onclick="emVer()">Ver ficha de emergência <em>›</em></button></div>';
+}
+function emReacCard(p){
+  var rs=emD(p).reacoes;if(!rs.length)return'';
+  return'<div class="eml hi">'+IC.warn+'<div><b>Evitar: '+esc(rs.map(function(r){return r.n}).join(', '))+'</b><div class="mut" style="font-size:12px">Reação adversa relatada: '+esc(rs.map(function(r){return r.reacao}).filter(function(x,i,a){return x&&a.indexOf(x)===i}).join('; ')||'reação não informada')+'</div></div></div>';
+}
+function emLinhas(p,limitado){
+  var e=emD(p),L=[];
+  L.push({t:'FICHA DE EMERGÊNCIA',b:1,s:16,c:[0.7,0.1,0.1],gap:6});
+  L.push({t:p.nome||'Nome não informado',b:1,s:14,gap:2});
+  L.push({t:'Nascimento: '+(p.nasc?p.nasc+(emIdade(p)?' ('+emIdade(p)+')':''):'Não informado')+'   ·   Tipo sanguíneo: '+(e.sangue?e.sangue+' (confirmado)':'Não informado'),s:11,gap:8});
+  L.push({t:'ALERGIAS',b:1,s:12,c:[0.7,0.1,0.1],gap:2});
+  var r=emAlergiaResumo(p);
+  if(e.alergias.length)e.alergias.forEach(function(a){L.push({t:'- '+a.n+' ('+tipoAl(a.tipo)+')'+(a.reacao?' - reação: '+a.reacao:' - reação não informada')+(a.estado==='relatada'?' [relatada]':''),b:1,s:12,c:[0.7,0.1,0.1],gap:1})});
+  else L.push({t:r.txt.replace('Alergias: ',''),s:12,gap:1});
+  L.push({t:'',s:6,gap:4});
+  if(e.reacoes.length){
+    L.push({t:'MEDICAMENTOS A EVITAR - REAÇÕES ADVERSAS RELATADAS',b:1,s:12,c:[0.7,0.1,0.1],gap:2});
+    e.reacoes.forEach(function(r){L.push({t:'- '+r.n+' - reação relatada: '+(r.reacao||'não informada')+' (não classificada como alergia)',b:1,s:12,c:[0.7,0.1,0.1],gap:1})});
+    L.push({t:'',s:6,gap:4});
+  }
+  L.push({t:'MEDICAMENTOS EM USO (confirmados)',b:1,s:12,gap:2});
+  var ms=emMeds(p);
+  if(ms.length)ms.forEach(function(m){L.push({t:'- '+m.n+(m.dose?' '+m.dose:'')+(m.freq?' - '+m.freq:''),s:11,gap:1})});else L.push({t:'Nenhum medicamento confirmado'+(emMedsPend(p)?' ('+emMedsPend(p)+' aguardando confirmação)':''),s:11,gap:1});
+  L.push({t:'',s:6,gap:4});
+  if(!limitado){
+    L.push({t:'DOENÇAS E CONDIÇÕES',b:1,s:12,gap:2});
+    var ds=emDiag(p);
+    if(ds.length)ds.forEach(function(x){L.push({t:'- '+x.n+' ('+(x.tipo==='conf'?'confirmado':'relatado')+')',s:11,gap:1})});else L.push({t:'Nenhuma informada',s:11,gap:1});
+    L.push({t:'',s:6,gap:4});
+  }
+  L.push({t:'CONTATO DE EMERGÊNCIA',b:1,s:12,gap:2});
+  L.push({t:e.contato.nome||e.contato.tel?(e.contato.nome||'')+(e.contato.rel?' ('+e.contato.rel+')':'')+(e.contato.tel?' - '+e.contato.tel:''):'Não informado',s:12,gap:6});
+  if(!limitado&&e.obs){L.push({t:'OBSERVAÇÕES MÉDICAS',b:1,s:12,gap:2});L.push({t:e.obs,s:11,gap:6})}
+  L.push({t:'Informações registradas pelo próprio paciente no app Saúde a Dois, em '+nowStr().slice(0,10)+'. Não substituem avaliação médica. Confirmar com o paciente quando possível.',s:8,c:[0.4,0.4,0.4],gap:0});
+  return L;
+}
+function tipoAl(t){var r='';EM_TIPOS.forEach(function(k){if(k[0]===t)r=k[1].toLowerCase()});return r||'outra'}
+function emTexto(p,limitado){return emLinhas(p,limitado).map(function(l){return l.t}).filter(function(t,i,a){return t||(a[i-1])}).join('\n')}
+/* PDF simples (Helvetica, texto) */
+function pdfLat(s){return String(s).replace(/[–—]/g,'-').replace(/[•·]/g,'-').replace(/…/g,'...').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[^\x00-\xff]/g,'?').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)')}
+function pdfGera(L){
+  var W=595,H=842,M=48,pages=[],cur=[],y=H-M;
+  function nova(){pages.push(cur);cur=[];y=H-M}
+  L.forEach(function(l){
+    var s=l.s||11,maxc=Math.floor((W-2*M)/(s*(l.b?0.55:0.5))),words=String(l.t).split(' '),line='',lines=[];
+    words.forEach(function(w){if((line+' '+w).trim().length>maxc){lines.push(line);line=w}else line=(line+' '+w).trim()});lines.push(line);
+    lines.forEach(function(tx){if(y-s<M)nova();var c=l.c||[0,0,0];cur.push('BT /'+(l.b?'F2':'F1')+' '+s+' Tf '+c.join(' ')+' rg '+M+' '+(y-s)+' Td ('+pdfLat(tx)+') Tj ET');y-=s*1.35});
+    y-=(l.gap||0);
+  });
+  pages.push(cur);
+  var objs=[],off=[];
+  function add(s){objs.push(s);return objs.length}
+  add('<< /Type /Catalog /Pages 2 0 R >>');add('PAGES');
+  add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  var kids=[];
+  pages.forEach(function(pg){var cs=pg.join('\n'),ci=add('<< /Length '+cs.length+' >>\nstream\n'+cs+'\nendstream');var pi=add('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+W+' '+H+'] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+ci+' 0 R >>');kids.push(pi+' 0 R')});
+  objs[1]='<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+kids.length+' >>';
+  var out='%PDF-1.4\n';
+  objs.forEach(function(o,i){off.push(out.length);out+=(i+1)+' 0 obj\n'+o+'\nendobj\n'});
+  var x=out.length;out+='xref\n0 '+(objs.length+1)+'\n0000000000 65535 f \n';
+  off.forEach(function(o){out+=('0000000000'+o).slice(-10)+' 00000 n \n'});
+  out+='trailer\n<< /Size '+(objs.length+1)+' /Root 1 0 R >>\nstartxref\n'+x+'\n%%EOF';
+  var u=new Uint8Array(out.length);for(var i=0;i<out.length;i++)u[i]=out.charCodeAt(i)&255;
+  return u;
+}
+function emArquivoPdf(p){return new File([pdfGera(emLinhas(p,false))],'Ficha de emergência - '+nome1(p)+'.pdf',{type:'application/pdf'})}
+function emPdf(){var f=emArquivoPdf(P());if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],title:f.name}).catch(function(){});else{salvaArq(f);toast('PDF baixado.')}}
+function emWhats(){window.open('https://wa.me/?text='+encodeURIComponent(emTexto(P(),false)),'_blank')}
+function emEmail(){location.href='mailto:?subject='+encodeURIComponent('Ficha de emergência - '+P().nome)+'&body='+encodeURIComponent(emTexto(P(),false))}
+/* visualização */
+function emFichaHtml(p,limitado,perfil){
+  var e=emD(p),r=emAlergiaResumo(p),ms=emMeds(p),ds=emDiag(p),tel=(e.contato.tel||'').replace(/[^\d+]/g,'');
+  var h='<div class="emv-h">'+IC.warn+'<b>Ficha de emergência</b></div><h2 style="margin:6px 0 0">'+esc(p.nome||'Nome não informado')+'</h2>'+
+    '<div class="mut">Nascimento: '+(p.nasc?esc(p.nasc)+(emIdade(p)?' · '+emIdade(p):''):'Não informado')+' · Tipo sanguíneo: '+(e.sangue?'<b>'+esc(e.sangue)+'</b> (confirmado)':'Não informado')+'</div>'+
+    '<div class="emsec hi"><h3>Alergias</h3>'+(e.alergias.length?e.alergias.map(function(a){return'<div class="ema"><b>'+esc(a.n)+'</b> <span>'+tipoAl(a.tipo)+(a.estado==='relatada'?' · relatada':'')+'</span><div>'+(a.reacao?'Reação: '+esc(a.reacao):'Reação ainda não informada')+'</div></div>'}).join(''):'<div class="ema"><b>'+esc(r.txt.replace('Alergias: ',''))+'</b></div>')+'</div>'+
+    (e.reacoes.length?'<div class="emsec hi"><h3>Medicamentos a evitar</h3><div class="mut" style="margin-bottom:4px">Reações adversas medicamentosas relatadas (não classificadas como alergia)</div>'+e.reacoes.map(function(r){return'<div class="ema"><b>'+esc(r.n)+'</b><div>Reação relatada: '+(r.reacao?esc(r.reacao):'não informada')+'</div></div>'}).join('')+'</div>':'')+
+    '<div class="emsec"><h3>Medicamentos em uso</h3>'+(ms.length?ms.map(function(m){return'<div class="li"><b>'+esc(m.n)+'</b> '+esc(m.dose||'')+(m.freq?'<div class="mut">'+esc(m.freq)+'</div>':'')+'</div>'}).join(''):'<div class="mut">Nenhum medicamento confirmado'+(emMedsPend(p)?' ('+emMedsPend(p)+' aguardando confirmação no prontuário)':'')+'</div>')+'</div>';
+  if(!limitado)h+='<div class="emsec"><h3>Doenças e condições</h3>'+(ds.length?ds.map(function(x){return'<div class="li">'+esc(x.n)+' <span class="mut">'+(x.tipo==='conf'?'confirmado':'relatado')+'</span></div>'}).join(''):'<div class="mut">Nenhuma informada</div>')+'</div>';
+  h+='<div class="emsec"><h3>Contato de emergência</h3>'+((e.contato.nome||e.contato.tel)?'<div><b>'+esc(e.contato.nome||'')+'</b>'+(e.contato.rel?' <span class="mut">('+esc(e.contato.rel)+')</span>':'')+'</div>'+(e.contato.tel?'<div style="font-size:20px">'+esc(e.contato.tel)+'</div>':''):'<div class="mut">Não informado</div>')+'</div>';
+  if(!limitado&&e.obs)h+='<div class="emsec"><h3>Observações médicas</h3><div>'+esc(e.obs).replace(/\n/g,'<br>')+'</div></div>';
+  h+='<div class="mut" style="font-size:12px;margin-top:6px">Informações registradas pelo próprio paciente. Não substituem avaliação médica.</div>';
+  if(limitado)return h;
+  h+='<div class="row wrap emact">'+(tel?'<a class="btn" href="tel:'+esc(tel)+'">Ligar</a>':'')+'<button class="btn" style="background:var(--gold)" onclick="emWhats()">WhatsApp</button><button class="btn sec" onclick="emEmail()">E-mail</button><button class="btn sec" onclick="emPdf()">PDF</button></div>'+
+    '<div class="row" style="margin-top:6px"><button class="btn sec" onclick="emEdita()">Atualizar informações</button></div>';
+  return h;
+}
+function emOverlay(html){
+  var o=document.getElementById('emv');if(!o){o=document.createElement('div');o.id='emv';document.body.appendChild(o)}
+  o.innerHTML='<div class="emv-box"><button class="emx" onclick="emFecha()" aria-label="Fechar">×</button>'+html+'</div>';
+  o.onclick=function(e){if(e.target===o)emFecha()};
+}
+function emFecha(){var o=document.getElementById('emv');if(o)o.remove()}
+function emVer(){emOverlay(emFichaHtml(P(),false))}
+/* edição simples */
+function emEdita(){
+  var p=P(),e=emD(p),c=e.contato;
+  var h='<h2 style="margin:0 0 6px">Atualizar ficha</h2><div class="mut" style="margin-bottom:6px">Preencha só o que souber. O que ficar em branco aparece como “Não informado”.</div>'+
+    '<label>Nome completo</label><input id="em_n" value="'+esc(p.nome||'')+'"><label>Data de nascimento</label><input id="em_d" value="'+esc(p.nasc||'')+'" placeholder="dd/mm/aaaa" inputmode="numeric">'+
+    '<h3 class="emh3">Alergias</h3><div id="em_al">'+e.alergias.map(emAlLinha).join('')+'</div><button class="btn sm sec" type="button" onclick="emAlAdd()">+ Adicionar alergia</button>'+
+    '<h3 class="emh3">Medicamentos a evitar (reação adversa relatada)</h3><div id="em_re">'+e.reacoes.map(emReLinha).join('')+'</div><button class="btn sm sec" type="button" onclick="emReAdd()">+ Adicionar medicamento a evitar</button>'+
+    '<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="em_sa" style="width:auto"'+(e.semAlergias?' checked':'')+'> Confirmo que <b>não há alergias conhecidas</b></label>'+
+    '<h3 class="emh3">Contato de emergência</h3><div class="row wrap"><div><label>Nome</label><input id="em_cn" value="'+esc(c.nome)+'"></div><div><label>Parentesco</label><input id="em_cr" value="'+esc(c.rel)+'"></div></div><label>Telefone</label><input id="em_ct" value="'+esc(c.tel)+'" inputmode="tel" placeholder="(21) 9XXXX-XXXX">'+
+    '<label>Tipo sanguíneo <span class="mut">— só se confirmado</span></label><select id="em_s"><option value="">Não informado</option>'+SANGUE.map(function(s){return'<option'+(e.sangue===s?' selected':'')+'>'+s+'</option>'}).join('')+'</select>'+
+    '<label>Observações médicas importantes</label><textarea id="em_o" rows="3">'+esc(e.obs||'')+'</textarea>'+
+    '<h3 class="emh3">Condições que aparecem na ficha</h3><div class="mut" style="margin-bottom:4px">Vêm do prontuário (confirmadas ou relatadas). Desmarque o que não for relevante em emergência.</div>'+
+    ((p.diag||[]).filter(function(x){return!x.fim&&(x.tipo==='conf'||x.tipo==='rel')}).map(function(x,i){return'<label class="prow" style="border:0;padding:3px 0"><input type="checkbox" class="em_dg" data-n="'+esc(norm(x.n))+'" '+(e.diagOff[norm(x.n)]?'':'checked ')+'><span class="stx"><b style="font-weight:400">'+esc(x.n)+'</b></span></label>'}).join('')||'<div class="mut">Nenhuma no prontuário.</div>')+
+    '<h3 class="emh3">Tela de bloqueio do app</h3><label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="em_b" style="width:auto;margin-top:3px"'+(e.bloqueio?' checked':'')+'><span>Mostrar uma <b>versão mínima</b> (nome, alergias, medicamentos confirmados e contato) na tela de PIN do app, sem digitar o PIN. Qualquer pessoa com o celular poderá ver isso.</span></label>'+
+    '<div class="row" style="margin-top:12px"><button class="btn sec" onclick="emVer()">Cancelar</button><button class="btn" onclick="emSalva()">Salvar</button></div>';
+  emOverlay(h);
+}
+function emAlLinha(a){return'<div class="ema2"><input class="em_an" placeholder="Substância (ex.: Dipirona)" value="'+esc(a.n||'')+'"><select class="em_at">'+EM_TIPOS.map(function(k){return'<option value="'+k[0]+'"'+(k[0]===a.tipo?' selected':'')+'>'+k[1]+'</option>'}).join('')+'</select><input class="em_ar" placeholder="Reação (se souber)" value="'+esc(a.reacao||'')+'"><button type="button" class="btn sm sec" onclick="this.parentNode.remove()">Remover</button></div>'}
+function emReLinha(a){return'<div class="ema2"><input class="em_rn" placeholder="Medicamento (ex.: Plasil)" value="'+esc(a.n||'')+'"><input class="em_rr" placeholder="Reação relatada" value="'+esc(a.reacao||'')+'"><button type="button" class="btn sm sec" onclick="this.parentNode.remove()">Remover</button></div>'}
+function emReAdd(){var d=document.createElement('div');d.innerHTML=emReLinha({});document.getElementById('em_re').appendChild(d.firstChild)}
+function emAlAdd(){var d=document.createElement('div');d.innerHTML=emAlLinha({tipo:'medicamento',estado:'relatada'});document.getElementById('em_al').appendChild(d.firstChild)}
+function emSalva(){
+  var p=P(),e=emD(p);logAnt('emerg',e);
+  var nome=val('em_n'),nasc=val('em_d');
+  if(nasc&&!/^\d{2}\/\d{2}\/\d{4}$/.test(nasc)){alert('Nascimento no formato dd/mm/aaaa.');return}
+  var al=[],ex={};e.alergias.forEach(function(a){ex[norm(a.n)]=a});
+  [].forEach.call(document.querySelectorAll('#em_al .ema2'),function(r){var n=r.querySelector('.em_an').value.trim();if(!n)return;var old=ex[norm(n)];al.push({n:n,tipo:r.querySelector('.em_at').value,reacao:r.querySelector('.em_ar').value.trim(),estado:old?old.estado:'relatada'})});
+  e.alergias=al;
+  e.reacoes=[].map.call(document.querySelectorAll('#em_re .ema2'),function(r){return{n:r.querySelector('.em_rn').value.trim(),reacao:r.querySelector('.em_rr').value.trim(),estado:'relatada'}}).filter(function(r){return r.n});
+  if(document.getElementById('em_sa').checked&&!al.length)e.semAlergias=e.semAlergias||nowStr().slice(0,10);else e.semAlergias='';
+  e.contato={nome:val('em_cn'),rel:val('em_cr'),tel:val('em_ct')};e.sangue=val('em_s');e.obs=val('em_o');
+  e.diagOff={};[].forEach.call(document.querySelectorAll('.em_dg'),function(c){if(!c.checked)e.diagOff[c.getAttribute('data-n')]=true});
+  e.bloqueio=document.getElementById('em_b').checked;e.atualizado=nowStr();
+  if(nome)p.nome=nome;p.nasc=nasc||p.nasc;
+  save();emBloqueioBtn();render(true);emVer();toast('Ficha de emergência atualizada.');
+}
+/* tela de bloqueio (somente se o paciente autorizou) */
+function emBloqueioBtn(){
+  var ks=Object.keys(S.profiles).filter(function(k){return k==='douglas'||k==='rodrigo'}).filter(function(k){return S.profiles[k].emerg&&S.profiles[k].emerg.bloqueio});
+  var b=document.getElementById('embl');if(!b){b=document.createElement('button');b.id='embl';b.className='btn';b.style.cssText='background:#b3261e;color:#fff;margin-top:6px';b.onclick=emBloqueioVer;var l=document.getElementById('lockscr');if(l)l.appendChild(b)}
+  b.textContent='Ficha de emergência';b.style.display=ks.length?'':'none';
+}
+function emBloqueioVer(){
+  var ks=Object.keys(S.profiles).filter(function(k){return S.profiles[k].emerg&&S.profiles[k].emerg.bloqueio});
+  emOverlay(ks.map(function(k){return'<div style="margin-bottom:16px">'+emFichaHtml(S.profiles[k],true,k)+'</div>'}).join('<hr>'));
+  var o=document.getElementById('emv');if(o)o.style.zIndex=999;
+}
+
+emBloqueioBtn();
 pintaIcones();
 render();
 recebeCompartilhado();
