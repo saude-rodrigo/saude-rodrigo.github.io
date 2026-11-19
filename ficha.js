@@ -364,7 +364,7 @@ function mergeFicha(p,f){
     var y=JSON.parse(JSON.stringify(x));delete y.alias;p.pend.push(y);n.pend++});
   if(!p.espec)p.espec={};Object.keys(f.espec||{}).forEach(function(k){var l=p.espec[k]=p.espec[k]||[];f.espec[k].forEach(function(x){if(l.indexOf(x)<0){l.push(x);n.espec++}})});
   if(!p.perg)p.perg={};Object.keys(f.perg||{}).forEach(function(k){var l=p.perg[k]=p.perg[k]||(ESP[k]?ESP[k].q.slice():[]);f.perg[k].forEach(function(x){if(!l.some(function(y){return norm(y)===norm(x)})){l.push(x);n.perg++}})});
-  if(!p.agenda)p.agenda=[];(f.agendaRemover||[]).forEach(function(x){var a=p.agenda.filter(function(y){return y.t===x.t&&y.d===x.d&&y.h===x.h});a.forEach(function(y){logAnt('agenda',y);p.agenda.splice(p.agenda.indexOf(y),1);n.removidas=(n.removidas||0)+1})});(f.agenda||[]).forEach(function(x){if(p.agenda.some(function(y){return y.t===x.t&&y.d===x.d&&y.h===x.h}))return;p.agenda.push(JSON.parse(JSON.stringify(x)));n.agenda=(n.agenda||0)+1});
+  if(!p.agenda)p.agenda=[];(f.agendaRemover||[]).forEach(function(x){var a=p.agenda.filter(function(y){return y.t===x.t&&y.d===x.d&&y.h===x.h});a.forEach(function(y){logAnt('agenda',y);p.agenda.splice(p.agenda.indexOf(y),1);n.removidas=(n.removidas||0)+1})});(f.agenda||[]).forEach(function(x){var yy=null;p.agenda.forEach(function(y){if(y.t===x.t&&y.d===x.d&&y.h===x.h)yy=y});if(yy){if(x.gid&&!yy.gid){yy.gid=x.gid;delete yy.gpend;n.atual=(n.atual||0)+1}return}p.agenda.push(JSON.parse(JSON.stringify(x)));n.agenda=(n.agenda||0)+1});
   p.agenda.sort(function(a,b){return(a.d+a.h)<(b.d+b.h)?-1:1});
   return n;
 }
@@ -849,8 +849,8 @@ function pedAgenda(){
 function pedAgendaSalva(){
   var iso=val('pa_d');if(!iso){alert('Informe a data.');return}
   var p=P(),ag={iso:iso,d:dataBR(iso),hora:val('pa_h'),local:val('pa_l')};
-  pedSelIdx().forEach(function(i){var x=p.pend[i];logAnt('pend',x);x.s='agendado';x.ag=JSON.parse(JSON.stringify(ag))});
-  var n=pedSelIdx().length;pedSel={};save();pedFecha();render(true);toast(n+' exame(s) agendado(s).');
+  pedSelIdx().forEach(function(i){var x=p.pend[i];logAnt('pend',x);pedGLiberar(x);x.s='agendado';x.ag=JSON.parse(JSON.stringify(ag));x.ag.gpend=true});
+  var n=pedSelIdx().length;pedSel={};save();pedFecha();render(true);pedAvisaG(n);
 }
 function pedReal(){
   var ids=pedSelIdx();if(!ids.length){alert('Marque os exames.');return}
@@ -947,7 +947,7 @@ function pedMais(v){
   if(!v)return;var ids=pedSelIdx();if(!ids.length){alert('Marque os exames.');return}var p=P();
   if(v==='descartado'&&!confirm('Tirar '+ids.length+' exame(s) da lista? Eles continuam no histórico.'))return;
   if(v==='cancelado'&&!confirm('Marcar '+ids.length+' exame(s) como cancelado(s)?'))return;
-  ids.forEach(function(i){var x=p.pend[i];logAnt('pend',x);x.s=v;if(v==='pedido')delete x.ag});
+  ids.forEach(function(i){var x=p.pend[i];logAnt('pend',x);if(v==='cancelado'||v==='pedido'||v==='descartado')pedGLiberar(x);x.s=v;if(v==='pedido')delete x.ag});
   pedSel={};save();render(true);
 }
 /* editar um exame só */
@@ -966,12 +966,14 @@ function pedEdita(i){
 function pedEditaSalva(i){
   var p=P(),x=p.pend[i],st=val('pe_s'),iso=val('pe_d');
   if(st==='agendado'&&!iso){alert('Informe a data do agendamento.');return}
-  logAnt('pend',x);x.s=st;
+  logAnt('pend',x);
+  if(st==='agendado'||st==='pedido'||st==='cancelado')pedGLiberar(x);
+  x.s=st;
   var tp=val('pe_t');if(tp){if(tp!==tipoExAuto(x.n)||x.tipoEx)x.tipoEx=tp;if(tp===tipoExAuto(x.n)&&tp!=='?')delete x.tipoEx}
-  if(st==='agendado')x.ag={iso:iso,d:dataBR(iso),hora:val('pe_h'),local:val('pe_l')};
+  if(st==='agendado')x.ag={iso:iso,d:dataBR(iso),hora:val('pe_h'),local:val('pe_l'),gpend:true};
   else if(st==='realizado')x.dataReal=dataBR(iso||isoHoje());
   else if(st==='pedido')delete x.ag;
-  save();pedFecha();render(true);toast('Salvo.');
+  save();pedFecha();render(true);toast('Salvo.');if(st==='agendado')pedAvisaG(1);
 }
 function pedSalvaArquivos(fs,base,tipo,data,vinc,exame,n0){
   fs=[].slice.call(fs).filter(function(f){return/pdf$/i.test(f.name)||f.type==='application/pdf'||/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic)$/i.test(f.name)});
@@ -1018,6 +1020,45 @@ function pedNovaSalva(){
   lastEsp=esp;save();pedFecha();render(true);toast(novos+prom+' exame(s) solicitado(s).');
 }
 
+
+/* =====================================================================
+   v27 — marcar no app => vai sozinho para o Google Agenda
+   ===================================================================== */
+var sincBusy=false;
+function sincAgenda(){
+  if(sincBusy||!(window.G&&G.connected()))return Promise.resolve();
+  var jobs=[];
+  Object.keys(S.profiles).forEach(function(k){
+    var pr=S.profiles[k],nm=nome1(pr);
+    (pr.agenda||[]).forEach(function(a){if(a.gpend&&!a.gid)jobs.push({a:a,k:k,ev:{t:nm+' — '+a.t,d:a.d,h:a.h,l:a.l,p:a.p}})});
+    var lotes={};
+    (pr.pend||[]).forEach(function(x){if(x.s==='agendado'&&x.ag&&x.ag.gpend&&!x.ag.gid){var kk=[x.ag.iso,x.ag.hora,x.ag.local,x.esp,x.dataSol].join('|');(lotes[kk]=lotes[kk]||[]).push(x)}});
+    Object.keys(lotes).forEach(function(kk){
+      var xs=lotes[kk],a0=xs[0].ag;
+      jobs.push({xs:xs,k:k,ev:{t:nm+' — '+(xs.length>1?'Exames ('+xs.length+')':xs[0].n)+(xs[0].esp?' · '+xs[0].esp:''),d:a0.iso,h:a0.hora||'',diaTodo:!a0.hora,l:a0.local,p:'Exames: '+xs.map(function(x){return x.n}).join(', ')+(a0.hora?'':'. Horário a confirmar.')}});
+    });
+  });
+  if(!jobs.length)return Promise.resolve();
+  sincBusy=true;var ok=0,erro='';
+  return jobs.reduce(function(pr,j){return pr.then(function(){
+    return G.createEvent(j.ev,j.k).then(function(id){ok++;if(j.a){j.a.gid=id;delete j.a.gpend}else j.xs.forEach(function(x){x.ag.gid=id;delete x.ag.gpend})}).catch(function(e){erro=e&&e.message?e.message:'erro'});
+  })},Promise.resolve()).then(function(){
+    sincBusy=false;save();
+    if(ok)toast(ok+' evento(s) enviado(s) ao Google Agenda.');
+    if(erro)toast('Não consegui enviar ao Google Agenda: '+erro+'. Fica pendente e tento de novo.');
+    render(true);
+  });
+}
+function pedGLiberar(x){
+  if(!x.ag||!x.ag.gid)return;
+  var gid=x.ag.gid,outros=0;
+  Object.keys(S.profiles).forEach(function(k){(S.profiles[k].pend||[]).forEach(function(y){if(y!==x&&y.ag&&y.ag.gid===gid)outros++})});
+  if(!outros&&window.G&&G.connected())G.deleteEvent(gid).catch(function(){toast('O evento continua no Google Agenda. Remova por lá.')});
+  delete x.ag.gid;
+}
+function pedAvisaG(n){
+  if(window.G&&G.connected())sincAgenda();else toast(n+' agendado(s) no app. Conecte o ☁ para irem ao Google Agenda.');
+}
 pintaIcones();
 render();
 recebeCompartilhado();

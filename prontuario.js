@@ -328,7 +328,7 @@ function formConsulta(){
     '<div class="row"><div><label>Data</label><input id="ad" type="date"></div><div><label>Hora</label><input id="ah" type="time" value="08:00"></div></div>'+
     '<details class="mais"><summary>Mais detalhes (opcional)</summary><label>Local</label><input id="al"><label>Preparo / notas</label><textarea id="ap" rows="2" placeholder="Jejum, levar pedido…"></textarea></details>'+
     '<button class="btn" style="width:100%" onclick="addAg(\'s\')">Salvar consulta</button>'+
-    (window.G&&G.connected()?'<button class="btn sec" style="width:100%" onclick="addAg(\'c\')">☁️ Salvar e criar na agenda Google</button>':'')+
+    '<p class="mut" style="margin:6px 0 0">'+(window.G&&G.connected()?'☁ Ao salvar, a consulta vai sozinha para o Google Agenda.':'Conecte o ☁ para as consultas irem sozinhas ao Google Agenda.')+'</p>'+
     '<details class="mais"><summary>Outras opções</summary><div class="row"><button class="btn sec" onclick="addAg(\'g\')">Abrir no Google Agenda</button><button class="btn sec" onclick="addAg(\'i\')">Arquivo .ics</button></div></details></div>';
 }
 

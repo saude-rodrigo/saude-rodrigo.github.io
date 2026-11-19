@@ -190,7 +190,7 @@ function syncAll(){
   syncBusy=true;
   var ps=Object.keys(S.profiles),mudou=false;
   return ps.reduce(function(pr,k){return pr.then(function(){return syncProfile(k).then(function(x){if(x==='trazido')mudou=true})})},Promise.resolve())
-   .then(function(){syncTxt='☁ Sincronizado às '+nowStr().slice(11);syncBusy=false;if(mudou&&tab!=='google'){render(true)}else if(tab==='resumo')render(true);atualizaBadge();notificaEstoque()})
+   .then(function(){syncTxt='☁ Sincronizado às '+nowStr().slice(11);syncBusy=false;sincAgenda();if(mudou&&tab!=='google'){render(true)}else if(tab==='resumo')render(true);atualizaBadge();notificaEstoque()})
    .catch(function(e){syncBusy=false;syncTxt='☁ Não sincronizou: '+(e&&e.message?e.message:'erro')});
 }
 function autoSync(){
@@ -421,7 +421,7 @@ function addDia(){
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v26 · 19/11/2026';
+var APP_VER='v27 · 19/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+
@@ -620,8 +620,9 @@ function addAg(kind){
       .catch(function(e){alert(e.message)});
     return;
   }
-  P().agenda.push(a);save();
-  if(kind==='s'){goCons('proximas');toast('Consulta salva.');return}
+  P().agenda.push(a);
+  if(kind==='s'){a.gpend=true;save();goCons('proximas');if(window.G&&G.connected())sincAgenda();else toast('Consulta salva no app. Conecte o ☁ para ela ir ao Google Agenda.');return}
+  save();
   var s=a.d.replace(/-/g,'')+'T'+a.h.replace(':','')+'00';
   var eh=pad((parseInt(a.h.slice(0,2),10)+1)%24)+a.h.slice(3)+'00';
   var e=a.d.replace(/-/g,'')+'T'+eh.replace(':','');

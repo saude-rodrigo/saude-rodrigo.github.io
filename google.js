@@ -261,6 +261,7 @@
       method: 'POST', json: { summary: CFG.CALENDAR_NAME || 'Saúde', timeZone: TZ }
     }).then(function (c) { lsSet('gcal', c.id); return c.id; });
   }
+  function proxDia(d) { var x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + 1); return x.getFullYear() + '-' + ('0' + (x.getMonth() + 1)).slice(-2) + '-' + ('0' + x.getDate()).slice(-2); }
   function fimDe(h) {
     var hh = parseInt(h.slice(0, 2), 10) + 1;
     return hh > 23 ? '23:59' : (hh < 10 ? '0' : '') + hh + h.slice(2);
@@ -274,8 +275,8 @@
           summary: a.t,
           location: a.l || undefined,
           description: a.p || undefined,
-          start: { dateTime: a.d + 'T' + a.h + ':00', timeZone: TZ },
-          end: { dateTime: a.d + 'T' + fimDe(a.h) + ':00', timeZone: TZ },
+          start: a.diaTodo ? { date: a.d } : { dateTime: a.d + 'T' + a.h + ':00', timeZone: TZ },
+          end: a.diaTodo ? { date: proxDia(a.d) } : { dateTime: a.d + 'T' + fimDe(a.h) + ':00', timeZone: TZ },
           reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 1440 }, { method: 'popup', minutes: 60 }] },
           extendedProperties: { private: { app: 'saude-a-dois', perfil: perfil || '' } }
         }
