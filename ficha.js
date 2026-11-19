@@ -364,7 +364,7 @@ function mergeFicha(p,f){
     var y=JSON.parse(JSON.stringify(x));delete y.alias;p.pend.push(y);n.pend++});
   if(!p.espec)p.espec={};Object.keys(f.espec||{}).forEach(function(k){var l=p.espec[k]=p.espec[k]||[];f.espec[k].forEach(function(x){if(l.indexOf(x)<0){l.push(x);n.espec++}})});
   if(!p.perg)p.perg={};Object.keys(f.perg||{}).forEach(function(k){var l=p.perg[k]=p.perg[k]||(ESP[k]?ESP[k].q.slice():[]);f.perg[k].forEach(function(x){if(!l.some(function(y){return norm(y)===norm(x)})){l.push(x);n.perg++}})});
-  if(!p.agenda)p.agenda=[];(f.agenda||[]).forEach(function(x){if(p.agenda.some(function(y){return y.t===x.t&&y.d===x.d&&y.h===x.h}))return;p.agenda.push(JSON.parse(JSON.stringify(x)));n.agenda=(n.agenda||0)+1});
+  if(!p.agenda)p.agenda=[];(f.agendaRemover||[]).forEach(function(x){var a=p.agenda.filter(function(y){return y.t===x.t&&y.d===x.d&&y.h===x.h});a.forEach(function(y){logAnt('agenda',y);p.agenda.splice(p.agenda.indexOf(y),1);n.removidas=(n.removidas||0)+1})});(f.agenda||[]).forEach(function(x){if(p.agenda.some(function(y){return y.t===x.t&&y.d===x.d&&y.h===x.h}))return;p.agenda.push(JSON.parse(JSON.stringify(x)));n.agenda=(n.agenda||0)+1});
   p.agenda.sort(function(a,b){return(a.d+a.h)<(b.d+b.h)?-1:1});
   return n;
 }
@@ -376,7 +376,7 @@ function importaFicha(inp){
     if(j.pessoa&&j.pessoa!==S.cur){alert('Esta ficha é do perfil “'+j.pessoa+'”. Troque para esse perfil antes de importar.');return}
     if(!confirm('Importar a ficha para '+P().nome+'? Nada será apagado e itens que já existem não são duplicados.'))return;
     var n=mergeFicha(P(),j);save();render(true);
-    toast('Ficha importada: '+n.diag+' diagnósticos, '+n.meds+' medicamentos, '+n.sint+' sintomas novos'+(n.atual?', '+n.atual+' atualizados':'')+', '+n.pend+' exames em avaliação'+(n.agenda?', '+n.agenda+' consulta(s) agendada(s)':'')+'.');
+    toast('Ficha importada: '+n.diag+' diagnósticos, '+n.meds+' medicamentos, '+n.sint+' sintomas novos'+(n.atual?', '+n.atual+' atualizados':'')+', '+n.pend+' exames em avaliação'+(n.agenda?', '+n.agenda+' consulta(s) agendada(s)':'')+(n.removidas?', '+n.removidas+' consulta(s) corrigida(s)':'')+'.');
   });
   inp.value='';
 }
