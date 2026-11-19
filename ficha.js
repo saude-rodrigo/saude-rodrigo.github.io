@@ -1195,7 +1195,7 @@ function emPdf(){var f=emArquivoPdf(P());if(navigator.canShare&&navigator.canSha
 function emWhats(){window.open('https://wa.me/?text='+encodeURIComponent(emTexto(P(),false)),'_blank')}
 function emEmail(){location.href='mailto:?subject='+encodeURIComponent('Ficha de emergência - '+P().nome)+'&body='+encodeURIComponent(emTexto(P(),false))}
 /* visualização */
-function emFichaHtml(p,limitado,perfil){
+function emFichaBase(p,limitado,perfil){
   var e=emD(p),r=emAlergiaResumo(p),ms=emMeds(p),ds=emDiag(p),tel=(e.contato.tel||'').replace(/[^\d+]/g,'');
   var h='<div class="emv-h">'+IC.warn+'<b>Ficha de emergência</b></div><h2 style="margin:6px 0 0">'+esc(p.nome||'Nome não informado')+'</h2>'+
     '<div class="mut">Nascimento: '+(p.nasc?esc(p.nasc)+(emIdade(p)?' · '+emIdade(p):''):'Não informado')+' · Tipo sanguíneo: '+(e.sangue?'<b>'+esc(e.sangue)+'</b> (confirmado)':'Não informado')+'</div>'+
@@ -1266,6 +1266,35 @@ function emBloqueioVer(){
   var o=document.getElementById('emv');if(o)o.style.zIndex=999;
 }
 
+/* v30 — Primeiros Socorros */
+function psAlertas(p){var e=emD(p),r=emAlergiaResumo(p);return'<div class="emsec hi"><h3>Alertas deste paciente</h3><div><b>'+esc(r.txt)+'</b></div>'+(e.reacoes.length?e.reacoes.map(function(x){return'<div class="ema"><b>Evitar: '+esc(x.n)+'</b><div>Reação adversa relatada: '+esc(x.reacao||'não informada')+'</div></div>'}).join(''):'')+'</div>'}
+function psSamuBtn(){return'<a class="psamu" href="tel:192">'+IC.fone+'<span>Ligar SAMU (192)</span></a>'}
+function psDisc(){return'<div class="psnote">As orientações de primeiros socorros não substituem o atendimento médico de emergência. Em caso de dúvida, ligue 192.</div>'}
+function psRevisao(){return SOCORROS_META.revisao==='pendente'?'<div class="psnote" style="border-color:var(--gold)">Conteúdo baseado em diretrizes reconhecidas (AHA/Cruz Vermelha 2024–2025 e Ministério da Saúde). Revisão por profissional de saúde habilitado: pendente.</div>':''}
+function emFichaHtml(p,limitado,perfil){
+  var h=emFichaBase(p,limitado,perfil);if(limitado)return h;
+  var rowB='<div class="psgrid">'+psSamuBtn().replace('psamu','psamu big')+
+   '<button class="psb" onclick="psIr(\'psc\')">'+IC.user+'<span>Contatos de emergência</span></button>'+
+   '<button class="psb" onclick="psIr(\'psm\')">'+IC.pill+'<span>Medicamentos em uso</span></button>'+
+   '<button class="psb" onclick="psIr(\'psd\')">'+IC.clip+'<span>Condições de saúde</span></button></div>';
+  h=h.replace('<div class="emsec"><h3>Medicamentos em uso','<div id="psm" class="emsec"><h3>Medicamentos em uso').replace('<div class="emsec"><h3>Doenças e condições','<div id="psd" class="emsec"><h3>Doenças e condições').replace('<div class="emsec"><h3>Contato de emergência','<div id="psc" class="emsec"><h3>Contato de emergência');
+  var i=h.indexOf('<div id="psm"');if(i>0)h=h.slice(0,i)+rowB+h.slice(i);
+  var lista='<div class="emsec" style="margin-top:14px"><h3>Primeiros Socorros</h3><div class="mut" style="margin-bottom:6px">Orientações rápidas em situações de emergência (funcionam sem internet)</div>'+
+   SOCORROS.map(function(g){return'<button class="psrow" onclick="psAbre(\''+g.id+'\')"><i>'+(IC[g.ic]||IC.alerta)+'</i><span><b>'+esc(g.t)+'</b><small>'+esc(g.s)+'</small></span><em>›</em></button>'}).join('')+psDisc()+psRevisao()+'</div>';
+  var j=h.indexOf('<div class="row wrap emact">');return j>0?h.slice(0,j)+lista+h.slice(j):h+lista;
+}
+function psIr(id){var o=document.getElementById(id);if(o)o.scrollIntoView({behavior:'smooth',block:'start'})}
+function psAbre(id){
+  var g=SOCORROS.filter(function(x){return x.id===id})[0];if(!g)return;var p=P();
+  function sec(c,t,a){return'<div class="pssec '+c+'"><h3>'+t+'</h3><ul>'+a.map(function(x){return'<li>'+esc(x)+'</li>'}).join('')+'</ul></div>'}
+  emOverlay('<button class="psback" onclick="emVer()">'+IC.back+' Primeiros Socorros</button>'+psSamuBtn()+
+   '<h2 style="margin:10px 0 2px">'+esc(g.t)+'</h2><div class="mut">Adulto · '+esc(g.s)+'</div>'+
+   (g.personal?psAlertas(p):'')+
+   sec('ok','O que fazer',g.fazer)+sec('no','O que não fazer',g.naofazer)+sec('sa','Quando chamar o SAMU',g.samu)+
+   '<div class="mut" style="font-size:12px">Não há recomendação automática de medicamentos ou doses neste guia.</div>'+psDisc()+
+   '<button class="btn sec" style="width:100%;margin-top:8px" onclick="emVer()">Voltar à ficha</button>');
+  var b=document.querySelector('#emv .emv-box');if(b)b.scrollTop=0;
+}
 emBloqueioBtn();
 pintaIcones();
 render();

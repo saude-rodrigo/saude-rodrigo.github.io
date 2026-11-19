@@ -296,3 +296,12 @@ textarea{width:100%;font:inherit;border:1.5px solid var(--line);border-radius:12
 .emh3{margin:12px 0 4px;font-size:14px;color:var(--g);text-transform:uppercase}
 .ema2{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding:8px;border:1px solid var(--line);border-radius:12px}.ema2 input,.ema2 select{flex:1 1 45%;margin:0}
 @media print{#emv{position:static;background:none}.emact,.emx{display:none}}
+/* v30 primeiros socorros */
+.psamu{display:flex;align-items:center;justify-content:center;gap:10px;background:#c62828;color:#fff;border-radius:14px;padding:16px;font-size:20px;font-weight:700;text-decoration:none;min-height:56px;margin:10px 0}.psamu svg{width:28px;height:28px}
+.psgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.psgrid .psamu.big{grid-column:1/4;margin:0}
+.psb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:84px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px;font-size:13px;font-weight:600;padding:8px}.psb svg{width:26px;height:26px;color:var(--g)}
+.psrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:6px 0;min-height:60px;color:var(--ink)}.psrow i{width:36px;height:36px;color:var(--bad);flex:none}.psrow i svg{width:100%;height:100%}.psrow span{flex:1}.psrow b{display:block;font-size:16px}.psrow small{color:var(--mut);font-size:13px}.psrow em{font-style:normal;font-size:24px;color:var(--mut)}
+.psback{display:flex;align-items:center;gap:6px;border:0;background:none;color:var(--g);font-size:17px;font-weight:600;padding:6px 0}.psback svg{width:22px;height:22px}
+.pssec{border-radius:12px;padding:10px 14px;margin:10px 0;border-left:6px solid var(--g);background:var(--card)}.pssec h3{margin:0 0 6px;font-size:18px}.pssec ul{margin:0;padding-left:20px}.pssec li{font-size:17px;line-height:1.45;margin:6px 0}
+.pssec.no{border-left-color:var(--bad)}.pssec.sa{border-left-color:#c62828;background:#fdecea}
+.psnote{font-size:13px;color:var(--mut);border:1px dashed var(--line);border-radius:10px;padding:8px;margin:10px 0}

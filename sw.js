@@ -1,8 +1,8 @@
 // Service worker: deixa o app abrir sem internet.
 // Só guarda os arquivos do próprio app. Nada de dados de saúde passa por aqui.
-var CACHE = 'saude-a-dois-v29';
+var CACHE = 'saude-a-dois-v30';
 var ARQUIVOS = [
-  './', 'index.html', 'style.css', 'app.js', 'prontuario.js', 'ficha.js', 'google.js', 'config.js',
+  './', 'index.html', 'style.css', 'app.js', 'prontuario.js', 'ficha.js', 'socorros.js', 'google.js', 'config.js',
   'manifest.webmanifest', 'pdf.min.js', 'pdf.worker.min.js',
   'capa.jpg', 'icons.js', 'cena.jpg', 'no.png', 'impacto.png', 'icon-192.png', 'icon-512.png'
 ];
