@@ -421,7 +421,7 @@ function addDia(){
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v21 · 19/11/2026';
+var APP_VER='v22 · 19/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+

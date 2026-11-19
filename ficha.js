@@ -310,7 +310,7 @@ function saudeSub(p){
   var T={diag:'Diagnósticos',sint:'Sintomas',meds:'Medicamentos',exames:'Exames',geral:'Visão geral',hist:'Histórico'};
   var h=voltaBtn("saudeSec=null;render()",T[saudeSec]||'Saúde')+'<p class="mut" style="margin:-4px 0 10px 4px">Prontuário de '+esc(nome1(p))+'</p>';
   if(saudeSec==='diag')return h+vDiag(p);
-  if(saudeSec==='sint')return h+vSintomas(p);
+  if(saudeSec==='sint')return voltaBtn("saudeSec=null;render()",'Sintomas de '+esc(nome1(p)))+'<p class="mut" style="margin:-4px 0 10px 4px">Acompanhamento clínico</p>'+vSintomas(p);
   if(saudeSec==='meds')return h+vMeds(p);
   if(saudeSec==='exames')return h+vExamesN(p);
   if(saudeSec==='geral')return h+vGeral(p);
@@ -357,7 +357,7 @@ function mergeFicha(p,f){
   ['nasc','altura','sexoNasc'].forEach(function(k){if(id[k]&&!p[k])p[k]=id[k]});
   if(!p.diag)p.diag=[];(f.diag||[]).forEach(function(x){if(p.diag.some(function(y){return norm(y.n)===norm(x.n)}))return;x.em=nowStr();p.diag.push(x);n.diag++});
   (f.meds||[]).forEach(function(x){if(p.meds.some(function(y){return norm(y.n).split(' ')[0]===norm(x.n).split(' ')[0]}))return;p.meds.push(x);n.meds++});
-  if(!p.sint)p.sint=[];(f.sint||[]).forEach(function(x){var ex=null;p.sint.forEach(function(y){if(norm(y.n)===norm(x.n))ex=y});if(ex){var ch=false;if(ex.estado==='monitorar'&&x.estado==='relatado'){ex.estado='relatado';if(ex.grupo&&ex.grupo.indexOf('A observar')===0&&x.grupo)ex.grupo=x.grupo;ch=true}if(x.obs&&(ex.obs||'').indexOf(x.obs)<0){ex.obs=(ex.obs?ex.obs+' · ':'')+x.obs;ch=true}if(x.primeiro&&!ex.primeiro){ex.primeiro=x.primeiro;ch=true}if(ch)n.atual=(n.atual||0)+1;return}p.sint.push(x);n.sint++});
+  if(!p.sint)p.sint=[];(f.sint||[]).forEach(function(x){var ex=null;p.sint.forEach(function(y){if(norm(y.n)===norm(x.n))ex=y});if(ex){var ch=false;if(ex.estado==='monitorar'&&x.estado==='relatado'){ex.estado='relatado';delete ex.sit;if(ex.grupo&&ex.grupo.indexOf('A observar')===0&&x.grupo)ex.grupo=x.grupo;ch=true}if(x.obs&&(ex.obs||'').indexOf(x.obs)<0){ex.obs=(ex.obs?ex.obs+' · ':'')+x.obs;ch=true}if(x.primeiro&&!ex.primeiro){ex.primeiro=x.primeiro;ch=true}if(ch)n.atual=(n.atual||0)+1;return}p.sint.push(x);n.sint++});
   if(!p.peso)p.peso=[];(f.peso||[]).forEach(function(x){if(p.peso.some(function(y){return y.d===x.d&&+y.v===+x.v}))return;p.peso.push(x);n.peso++});
   (f.pend||[]).forEach(function(x){if(p.pend.some(function(y){return norm(y.n)===norm(x.n)&&y.s!=='descartado'}))return;p.pend.push(x);n.pend++});
   if(!p.espec)p.espec={};Object.keys(f.espec||{}).forEach(function(k){var l=p.espec[k]=p.espec[k]||[];f.espec[k].forEach(function(x){if(l.indexOf(x)<0){l.push(x);n.espec++}})});
@@ -581,7 +581,7 @@ function selItens(p,esp){
   var r=[],rx=SEL_REL[esp];
   (p.diag||[]).filter(function(x){return!x.fim}).forEach(function(x){r.push({g:'diag',k:'d:'+norm(x.n),t:x.n,sub:tdNome(x.tipo||'rel'),def:true})});
   p.meds.forEach(function(m){r.push({g:'med',k:'m:'+norm(m.n),t:m.n,sub:(m.dose||'')+(m.sit==='confirmado'?'':' · uso não confirmado'),def:true})});
-  (p.sint||[]).forEach(function(s){r.push({g:'sint',k:'s:'+norm(s.n),t:s.n,sub:s.estado==='monitorar'?'a observar':'',def:s.estado!=='monitorar'&&(!rx||rx.test(s.n)),rel:!!(rx&&rx.test(s.n))})});
+  (p.sint||[]).forEach(function(s){r.push({g:'sint',k:'s:'+norm(s.n),t:s.n,sub:s.estado==='monitorar'?'a observar':'',def:s.estado!=='monitorar'&&s.sit!=='resolvido'&&(!rx||rx.test(s.n)),rel:!!(rx&&rx.test(s.n))})});
   if(p.diario&&p.diario.length)r.push({g:'sint',k:'diario',t:'Diário do dia (dor, rigidez, fadiga)',sub:'últimos registros',def:!rx||/dor|rigidez|fadiga/.test(String(rx))});
   return r.map(function(o){o.on=selGet(p,esp,o.k,o.def);return o});
 }
@@ -615,9 +615,9 @@ function resumoHtml(p,esp){
   var ss=(p.sint||[]).filter(function(s){return on('s:'+norm(s.n))});
   h+='<h4>4. Sintomas selecionados e evolução</h4>';
   if(!ss.length&&!on('diario'))h+='<div class="mut">Nenhum selecionado.</div>';
-  if(ss.length)h+='<ul>'+ss.map(function(s){var hs=sintHist(p,s.n),v=hs.slice(-5).map(function(x){return x.int}),u=hs[hs.length-1];
-    return'<li><b>'+esc(s.n)+'</b>'+(s.estado==='investigar'?' (em investigação)':s.estado==='monitorar'?' (a observar; não registrado como presente)':'')+
-      (hs.length?': intensidade '+v.join(' → ')+'/10 (último em '+esc(u.d)+')'+(u.freq?', '+esc(u.freq.toLowerCase()):'')+(u.dur?', duração '+esc(u.dur):'')+(u.onde?', local: '+esc(u.onde):''):': sem intensidade registrada')+
+  if(ss.length)h+='<ul>'+ss.map(function(s){var hs=sintHist(p,s.n),v=hs.filter(function(x){return intDe(x)!=null}).slice(-5).map(function(x){return x.int}),u=hs[hs.length-1];
+    return'<li><b>'+esc(s.n)+'</b>'+sintTagTxt(s)+
+      (v.length?': intensidade '+v.join(' → ')+'/10 (último em '+esc(u.d)+')'+(u.freq?', '+esc(u.freq.toLowerCase()):'')+(u.dur?', duração '+esc(u.dur):'')+(u.onde?', local: '+esc(u.onde):''):': sem intensidade registrada')+
       (s.primeiro?'. Primeiro relato: '+esc(s.primeiro):hs.length?'. Primeiro registro: '+esc(hs[0].d):'')+(s.obs?'. '+esc(s.obs):'')+(u&&u.obs?'. Obs.: '+esc(u.obs):'')+'</li>'}).join('')+'</ul>';
   if(on('diario')){var last=p.diario.slice(-3).reverse();h+='<div><b>Diário do dia</b></div><ul>'+last.map(function(x){return'<li>'+esc(x.d)+': dor '+(x.dor||0)+'/10, rigidez '+(x.rig||0)+'/10, fadiga '+(x.fad||0)+'/10'+(x.obs?' ('+esc(x.obs)+')':'')+'</li>'}).join('')+'</ul>'}
   var qs=getPerg(p).filter(function(x){return x.trim()});
@@ -672,6 +672,134 @@ function recebeCompartilhado(){
     });
   },300);
 }
+/* =====================================================================
+   v22 — tela de Sintomas compacta (categorias, linha simples, janela de registro, histórico)
+   Situação (presente/melhorou/resolvido/não confirmado) é separada do acompanhamento (em investigação).
+   ===================================================================== */
+var SIT=[['relatado','Relatado'],['presente','Presente'],['melhorou','Melhorou'],['resolvido','Resolvido'],['naoconf','Não confirmado']];
+var CATS_S=['Musculares','Cognitivos','Emocionais','Digestivos','Urinários','Respiratórios e outros'];
+var CAT_IC={'Musculares':'bolt','Cognitivos':'wave','Emocionais':'heart','Digestivos':'stom','Urinários':'drop','Respiratórios e outros':'steth'};
+var FREQ2=['Constante','Diária','Semanal','Ocasional'];
+var sintQ='',sintFil={sit:'',cat:'',inv:false},sintAb={},smIdx=-1,smInt=null;
+function sitNome(k){var r=SIT.filter(function(x){return x[0]===(k||'relatado')})[0];return r?r[1]:'Relatado'}
+function sintEstado(s){return s.sit==='naoconf'?'monitorar':(s.inv?'investigar':'relatado')}
+function catDeSint(s){
+  if(s.cat&&CATS_S.indexOf(s.cat)>=0)return s.cat;
+  var t=norm(s.n),g=norm(s.grupo||'');
+  if(/urin|bexiga|xixi|miccao/.test(t))return'Urinários';
+  if(/abdom|fezes|nausea|vomit|intest|diarre|constip|estomag|azia|refluxo|digest/.test(t)||/digest/.test(g))return'Digestivos';
+  if(/memoria|esquec|atencao|concentra|cogniti|confus|raciocin/.test(t))return'Cognitivos';
+  if(/ansied|depress|desanimo|insonia|humor|tristez|irritab|emocion|panico|sono/.test(t))return'Emocionais';
+  if(/respir|tosse|falta de ar|pulm|nasal|garganta|cabeca|tontur|inchaco|retencao/.test(t))return'Respiratórios e outros';
+  if(/dor|muscul|rigidez|caimbra|forca|espasm|tremor|formig|dormencia|pele|agulha|articul|fadiga|cansaco|mal-estar|temperatura/.test(t)||/muscul|dor, pele/.test(g))return'Musculares';
+  if(/cognitivos e emocionais/.test(g))return'Emocionais';
+  return'Respiratórios e outros';
+}
+function sintMig(p){(p.sint||[]).forEach(function(s){if(s.inv===undefined)s.inv=s.estado==='investigar';if(s.sit===undefined&&s.estado==='monitorar')s.sit='naoconf';if(!s.cat)s.cat=catDeSint(s)})}
+function intDe(x){return x&&x.int!=null&&x.int!==''&&!isNaN(+x.int)?+x.int:null}
+function sintUlt(p,s){var hs=sintHist(p,s.n).filter(function(x){return intDe(x)!=null});return hs[hs.length-1]||null}
+function sintRecente(p,s){var lim=new Date();lim.setDate(lim.getDate()-7);var li=lim.getFullYear()+'-'+pad(lim.getMonth()+1)+'-'+pad(lim.getDate());if(s.upd&&s.upd>=li)return true;var hs=sintHist(p,s.n),u=hs[hs.length-1];return!!(u&&(u.t||'').slice(0,10)>=li)}
+function sintTagTxt(s){return s.sit==='naoconf'||s.estado==='monitorar'?' (não confirmado; não registrado como presente)':(s.sit&&s.sit!=='relatado'?' ('+sitNome(s.sit).toLowerCase()+')':'')+(s.inv?' (em investigação)':'')}
+
+function vSintomas(p){
+  if(!p.sint)p.sint=[];sintMig(p);
+  var rec=p.sint.filter(function(s){return sintRecente(p,s)}).length,nf=(sintFil.sit?1:0)+(sintFil.cat?1:0)+(sintFil.inv?1:0);
+  var h='<div class="row sstat"><div class="card"><span class="si2">'+IC.clip+'</span><div><b>'+p.sint.length+'</b><span>Sintomas registrados</span></div></div>'+
+    '<div class="card"><span class="si2">'+IC.hist+'</span><div><b>'+rec+'</b><span>Atualizados recentemente</span></div></div></div>';
+  h+='<div class="srch"><div class="sbox">'+IC.search+'<input id="sq" placeholder="Buscar sintoma..." value="'+esc(sintQ)+'" oninput="sintQ=this.value;pintaSintLista()"></div><button class="chip" id="sfb" onclick="sintFiltroTog()">Filtros'+(nf?' ('+nf+')':'')+'</button></div>';
+  h+='<div id="sf" class="card hide"><label>Situação</label><select onchange="sintFil.sit=this.value;pintaSintLista()"><option value="">Todas</option>'+SIT.map(function(x){return'<option value="'+x[0]+'"'+(sintFil.sit===x[0]?' selected':'')+'>'+x[1]+'</option>'}).join('')+'</select>'+
+    '<label>Categoria</label><select onchange="sintFil.cat=this.value;pintaSintLista()"><option value="">Todas</option>'+CATS_S.map(function(c){return'<option'+(sintFil.cat===c?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+
+    '<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" style="width:auto" '+(sintFil.inv?'checked ':'')+'onchange="sintFil.inv=this.checked;pintaSintLista()"> Só em investigação</label>'+
+    '<button class="btn sec sm" style="margin-top:8px" onclick="sintFil={sit:\'\',cat:\'\',inv:false};sintQ=\'\';render(true)">Limpar filtros</button></div>';
+  h+='<div id="sl">'+sintListaHtml(p)+'</div>';
+  h+='<details class="card"><summary>Calendário e diário completo do dia</summary>'+vHistorico()+'</details>';
+  h+='<button class="fab" onclick="sintAbre(-1)">'+IC.plus+' Registrar sintoma</button>';
+  return h;
+}
+function sintFiltroTog(){var e=document.getElementById('sf');if(e)e.classList.toggle('hide')}
+function pintaSintLista(){var p=P(),e=document.getElementById('sl');if(e)e.innerHTML=sintListaHtml(p);var b=document.getElementById('sfb');if(b){var nf=(sintFil.sit?1:0)+(sintFil.cat?1:0)+(sintFil.inv?1:0);b.textContent='Filtros'+(nf?' ('+nf+')':'')}}
+function sintVisivel(p,s){
+  if(sintFil.sit&&(s.sit||'relatado')!==sintFil.sit)return false;
+  if(sintFil.cat&&catDeSint(s)!==sintFil.cat)return false;
+  if(sintFil.inv&&!s.inv)return false;
+  if(sintQ&&norm(s.n+' '+(s.obs||'')+' '+catDeSint(s)).indexOf(norm(sintQ))<0)return false;
+  return true;
+}
+function sintListaHtml(p){
+  var filtrando=!!(sintQ||sintFil.sit||sintFil.cat||sintFil.inv),by={},h='';
+  p.sint.forEach(function(s,i){if(sintVisivel(p,s))(by[catDeSint(s)]=by[catDeSint(s)]||[]).push(i)});
+  var cats=CATS_S.filter(function(c){return by[c]&&by[c].length});
+  if(!p.sint.length)return'<div class="card"><div class="empty">Nenhum sintoma registrado. Toque em “Registrar sintoma”.</div></div>';
+  if(!cats.length)return'<div class="card"><div class="empty">Nenhum sintoma encontrado.</div></div>';
+  cats.forEach(function(c,k){
+    var ab=sintAb[c]!==undefined?sintAb[c]:(filtrando||k===0);
+    h+='<div class="scat'+(ab?' open':'')+'"><button class="sch" onclick="sintTog(\''+c+'\')">'+IC[CAT_IC[c]]+'<b>'+c+' ('+by[c].length+')</b><em>'+(ab?'⌃':'⌄')+'</em></button>';
+    if(ab)h+='<div class="sbody">'+by[c].map(function(i){var s=p.sint[i],u=sintUlt(p,s),sit=s.sit||'relatado';
+      return'<button class="srow" onclick="sintAbre('+i+')"><i class="sbar"></i><span class="stx"><b>'+esc(s.n)+'</b><span>'+sitNome(sit)+' • '+(u?'Intensidade: '+u.int+'/10':'Intensidade não informada')+'</span></span>'+
+        (s.inv?'<span class="sp sp-inv">Em investigação</span>':'')+'<span class="sp sp-'+sit+'">'+sitNome(sit)+'</span><em>›</em></button>'}).join('')+'</div>';
+    h+='</div>';
+  });
+  return h;
+}
+function sintTog(c){var p=P(),filtrando=!!(sintQ||sintFil.sit||sintFil.cat||sintFil.inv);var cur=sintAb[c]!==undefined?sintAb[c]:(filtrando||false);if(sintAb[c]===undefined&&!filtrando){var first=CATS_S.filter(function(x){return p.sint.some(function(s){return catDeSint(s)===x&&sintVisivel(p,s)})})[0];cur=first===c}sintAb[c]=!cur;pintaSintLista()}
+
+function sintFormHtml(i){
+  var p=P(),s=i>=0?p.sint[i]:null,iso=isoHoje(),hh=pad(new Date().getHours())+':'+pad(new Date().getMinutes()),sit=s?(s.sit||'relatado'):'presente';
+  smIdx=i;smInt=null;
+  var h=(s?'<h2 style="margin:0 0 6px">'+esc(s.n)+'</h2>':'<h2 style="margin:0 0 6px">Registrar sintoma</h2><label>Categoria</label><select id="sm_c">'+CATS_S.map(function(c){return'<option>'+c+'</option>'}).join('')+'</select><label>Nome do sintoma</label><input id="sm_n" placeholder="Ex.: Dor de cabeça" autocomplete="off">')+
+    '<label>Situação</label><select id="sm_s">'+SIT.map(function(x){return'<option value="'+x[0]+'"'+(x[0]===sit?' selected':'')+'>'+x[1]+'</option>'}).join('')+'</select>'+
+    '<label>Intensidade (0 a 10) <span class="mut">— opcional</span></label><div class="chips smi">'+[0,1,2,3,4,5,6,7,8,9,10].map(function(n){return'<button type="button" class="chip" data-n="'+n+'" onclick="smSetInt('+n+')">'+n+'</button>'}).join('')+'</div>'+
+    '<div class="row wrap"><div><label>Frequência</label><select id="sm_f"><option value="">—</option>'+FREQ2.map(function(f){return'<option>'+f+'</option>'}).join('')+'</select></div><div><label>Data do registro</label><input type="date" id="sm_d" value="'+iso+'"></div></div>'+
+    '<label>Observações <span class="mut">— opcional</span></label><input id="sm_ob">'+
+    '<details class="mais"><summary>Mais detalhes</summary>'+
+    '<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="sm_i" style="width:auto"'+(s&&s.inv?' checked':'')+'> Em investigação <span class="mut">(acompanhamento — separado da situação)</span></label>'+
+    (s?'<label>Categoria</label><select id="sm_c">'+CATS_S.map(function(c){return'<option'+(catDeSint(s)===c?' selected':'')+'>'+c+'</option>'}).join('')+'</select>':'')+
+    '<div class="row wrap"><div><label>Horário</label><input type="time" id="sm_h" value="'+hh+'"></div><div><label>Duração</label><input id="sm_du" placeholder="Ex.: 2 horas"></div></div>'+
+    '<label>Onde (localização)</label><input id="sm_l"><div class="row wrap"><div><label>O que melhora</label><input id="sm_m"></div><div><label>O que piora</label><input id="sm_p"></div></div></details>';
+  if(s){
+    var hs=sintHist(p,s.n).slice().reverse();
+    h+='<details class="mais"><summary>Histórico ('+hs.length+')</summary>'+(s.primeiro?'<div class="mut">Primeiro relato: '+esc(s.primeiro)+'</div>':'')+(s.obs?'<div class="mut">'+esc(s.obs)+'</div>':'')+
+      (hs.length?hs.map(function(x){var it=intDe(x);return'<div class="li">'+esc(x.d)+': '+[x.sit?sitNome(x.sit):'',it!=null?'intensidade '+it+'/10':'',x.freq?x.freq.toLowerCase():'',x.inv?'em investigação':'',x.obs||''].filter(Boolean).join(' · ')+'</div>'}).join(''):'<div class="mut">Sem registros datados ainda.</div>')+'</details>';
+  }
+  return h;
+}
+function smSetInt(n){smInt=smInt===n?null:n;[].forEach.call(document.querySelectorAll('.smi .chip'),function(b){b.classList.toggle('on',smInt!=null&&+b.getAttribute('data-n')===smInt)})}
+function sintAbre(i,cat){
+  var m=document.getElementById('sintm');if(!m){m=document.createElement('div');m.id='sintm';document.body.appendChild(m)}
+  m.innerHTML='<div class="sheet"><div id="smb">'+sintFormHtml(i)+'</div><div class="row" style="margin-top:12px"><button class="btn sec" onclick="sintFecha()">Cancelar</button><button class="btn" onclick="sintSalva()">Salvar</button></div></div>';
+  m.onclick=function(e){if(e.target===m)sintFecha()};
+  if(i<0&&cat){var c=document.getElementById('sm_c');if(c)c.value=cat}
+}
+function sintFecha(){var m=document.getElementById('sintm');if(m)m.remove()}
+function sintSalva(){
+  var p=P();if(!p.sint)p.sint=[];sintMig(p);
+  var i=smIdx,n,novo=false;
+  if(i<0){n=val('sm_n');if(!n){alert('Escreva o nome do sintoma.');return}
+    var ex=-1;p.sint.forEach(function(s,k){if(norm(s.n)===norm(n))ex=k});
+    if(ex>=0){i=ex;toast('Esse sintoma já existe — o registro foi acrescentado a ele.')}
+    else{p.sint.push({n:n,grupo:val('sm_c'),cat:val('sm_c'),estado:'relatado',inv:false,primeiro:dataBR(val('sm_d'))});i=p.sint.length-1;novo=true}
+  }
+  var s=p.sint[i];n=s.n;
+  if(!novo)logAnt('sint',s);
+  var iso=val('sm_d')||isoHoje(),sit=val('sm_s')||'relatado',hora=val('sm_h')||'00:00';
+  s.sit=sit;var ci=document.getElementById('sm_i');if(ci)s.inv=ci.checked;
+  if(val('sm_c'))s.cat=val('sm_c');
+  s.estado=sintEstado(s);s.upd=isoHoje();if(val('sm_f'))s.freq=val('sm_f');
+  sintLog(p).push({n:n,int:smInt,sit:sit,inv:!!s.inv,d:dataBR(iso),t:iso+'T'+hora,hora:hora,dur:val('sm_du'),freq:val('sm_f'),onde:val('sm_l'),mel:val('sm_m'),pior:val('sm_p'),obs:val('sm_ob'),em:nowStr()});
+  save();sintFecha();sintSel='';toast('Salvo.');
+  if(tab==='adicionar'||addSec==='sint')goSaude('sint');else render(true);
+}
+function dataBR(iso){var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso||'');return m?m[3]+'/'+m[2]+'/'+m[1]:''}
+function setSintEstado(i,e){var p=P();logAnt('sint',p.sint[i]);p.sint[i].estado=e;if(e==='monitorar')p.sint[i].sit='naoconf';else{if(p.sint[i].sit==='naoconf')delete p.sint[i].sit;p.sint[i].inv=e==='investigar'}save();render(true)}
+function vSintReg(){
+  var p=P();if(!p.sint)p.sint=[];sintMig(p);
+  var i=-1;p.sint.forEach(function(s,k){if(sintSel&&norm(s.n)===norm(sintSel))i=k});
+  var h='<div class="card">'+sintFormHtml(i)+'<div class="row" style="margin-top:12px"><button class="btn" onclick="sintSalva()">Salvar</button></div></div>';
+  h+='<details class="card"><summary>Registro completo do dia (dor, sono, pressão, urina, hidratação…)</summary>'+vDiario()+'</details>';
+  return h;
+}
+function saveSint(){sintSalva()}
+
 pintaIcones();
 render();
 recebeCompartilhado();

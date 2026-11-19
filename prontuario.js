@@ -28,7 +28,7 @@ function itens(p){
     var sn=x.sint?Object.keys(x.sint).join(', '):'',u=x.uri||{sint:[]};
     r.push({cat:'Sintoma',t:'Dor '+(x.dor||0)+'/10 · Fadiga '+(x.fad||0)+'/10',s:[sn,x.onde,(x.gat||[]).join(', '),(u.sint||[]).join(', '),u.cor?'urina '+u.cor:'',x.obs,x.psis?'pressão '+x.psis+'x'+x.pdia:''].filter(Boolean).join(' · '),d:x.d.slice(0,10),go:'verDet('+i+')'});
   });
-  (p.sintLog||[]).forEach(function(x){r.push({cat:'Sintoma',t:x.n+' '+x.int+'/10',s:[x.onde,x.dur,x.mel?'melhora: '+x.mel:'',x.pior?'piora: '+x.pior:'',x.obs].filter(Boolean).join(' · '),d:x.d,go:"goSaude('sint')"})});
+  (p.sintLog||[]).forEach(function(x){r.push({cat:'Sintoma',t:x.n+(x.int!=null&&x.int!==''?' '+x.int+'/10':''),s:[x.sit?'situação: '+sitNome(x.sit):'',x.inv?'em investigação':'',x.onde,x.dur,x.mel?'melhora: '+x.mel:'',x.pior?'piora: '+x.pior:'',x.obs].filter(Boolean).join(' · '),d:x.d,go:"goSaude('sint')"})});
   p.exames.forEach(function(e){r.push({cat:'Exame',t:e.n+': '+vtxt(e)+' '+e.u,s:flag(e)[0],d:e.d,go:"goSaude('exames')"})});
   p.pend.forEach(function(x){if(x.s==='removido'||x.s==='descartado')return;r.push({cat:'Exame '+(x.s==='pedido'?'pedido pelo médico':x.s==='realizado'?'realizado':'a pedir'),t:x.n,s:x.esp||'',d:x.dataRes||'',go:"goSaude('exames')"})});
   p.meds.forEach(function(m){r.push({cat:'Medicamento',t:m.n+(m.dose?' — '+m.dose:''),s:[m.tipo,m.motivo,m.finalidade].filter(Boolean).join(' · '),d:m.compra?fmtDate(m.compra):'',go:"goSaude('meds')"})});
