@@ -262,3 +262,16 @@ input,select,textarea{max-width:100%}
 #sintm .sheet{background:var(--bg);width:100%;max-width:640px;margin:0 auto;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
 @media print{.fab,#sintm{display:none!important}}
 .smi{display:grid;grid-template-columns:repeat(11,1fr);gap:4px}.smi .chip{padding:9px 0;text-align:center;font-size:13px;border-radius:12px}
+
+/* v23 pedidos */
+.prow{display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px solid var(--line);color:var(--ink)}
+.prow input,.pall input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--g)}
+.pall{display:flex;align-items:center;gap:10px;padding:6px 2px;font-weight:700;color:var(--g)}
+.fbtn{display:inline-flex;align-items:center;gap:6px;cursor:pointer}.fbtn svg{width:18px;height:18px}
+.pbar{position:fixed;left:8px;right:8px;bottom:84px;z-index:8;background:var(--g);color:#fff;border-radius:18px;padding:8px 10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+.pbar b{flex:1 0 100%;font-size:14px}.pbar .btn{width:auto;flex:0 0 auto;padding:7px 12px;min-height:0;background:#fff;color:var(--g)}.pbar .btn.sec{background:transparent;color:#fff;border-color:#fff}
+.pbar select{width:auto;flex:1 1 90px;margin:0;padding:7px 8px;font-size:14px}
+#pedm{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:flex-end}
+#pedm .sheet{background:var(--bg);width:100%;max-width:640px;margin:0 auto;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+@media print{.pbar,#pedm{display:none!important}}
+body.pbarOn{}

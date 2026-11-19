@@ -226,7 +226,7 @@ function vExamesN(p){
     });
   }else h+='<div class="card"><div class="empty">Nenhum resultado cadastrado.</div></div>';
   /* exames em avaliação */
-  var ev=p.pend.map(function(x,i){return{x:x,i:i}}).filter(function(o){return o.x.s!=='descartado'&&o.x.s!=='removido'});
+  var ev=p.pend.map(function(x,i){return{x:x,i:i}}).filter(function(o){return o.x.s!=='descartado'&&o.x.s!=='removido'&&!(o.x.dataSol&&o.x.s!=='a pedir')});
   h+='<div class="card"><h2>Exames em avaliação</h2><p class="mut" style="margin:0 0 6px"><b>Sugerido</b> é só uma ideia para conversar com o médico — <b>não é pedido médico</b>. Só vira “Solicitado” quando o médico pedir.</p>';
   if(!ev.length)h+='<div class="mut">Nenhum.</div>';
   EST.forEach(function(es){
@@ -359,7 +359,9 @@ function mergeFicha(p,f){
   (f.meds||[]).forEach(function(x){if(p.meds.some(function(y){return norm(y.n).split(' ')[0]===norm(x.n).split(' ')[0]}))return;p.meds.push(x);n.meds++});
   if(!p.sint)p.sint=[];(f.sint||[]).forEach(function(x){var ex=null;p.sint.forEach(function(y){if(norm(y.n)===norm(x.n))ex=y});if(ex){var ch=false;if(ex.estado==='monitorar'&&x.estado==='relatado'){ex.estado='relatado';delete ex.sit;if(ex.grupo&&ex.grupo.indexOf('A observar')===0&&x.grupo)ex.grupo=x.grupo;ch=true}if(x.obs&&(ex.obs||'').indexOf(x.obs)<0){ex.obs=(ex.obs?ex.obs+' · ':'')+x.obs;ch=true}if(x.primeiro&&!ex.primeiro){ex.primeiro=x.primeiro;ch=true}if(ch)n.atual=(n.atual||0)+1;return}p.sint.push(x);n.sint++});
   if(!p.peso)p.peso=[];(f.peso||[]).forEach(function(x){if(p.peso.some(function(y){return y.d===x.d&&+y.v===+x.v}))return;p.peso.push(x);n.peso++});
-  (f.pend||[]).forEach(function(x){if(p.pend.some(function(y){return norm(y.n)===norm(x.n)&&y.s!=='descartado'}))return;p.pend.push(x);n.pend++});
+  (f.pend||[]).forEach(function(x){var nomes=[x.n].concat(x.alias||[]).map(norm),ex=null;p.pend.forEach(function(y){if(!ex&&y.s!=='descartado'&&y.s!=='removido'&&nomes.indexOf(norm(y.n))>=0)ex=y});
+    if(ex){if(x.s==='pedido'&&ex.s==='a pedir'){ex.espAnt=ex.esp;ex.n=x.n;ex.s='pedido';ex.esp=x.esp;ex.dataSol=x.dataSol;ex.ord=x.ord;if(x.obs)ex.obs=x.obs;delete ex.cond;n.atual=(n.atual||0)+1}return}
+    var y=JSON.parse(JSON.stringify(x));delete y.alias;p.pend.push(y);n.pend++});
   if(!p.espec)p.espec={};Object.keys(f.espec||{}).forEach(function(k){var l=p.espec[k]=p.espec[k]||[];f.espec[k].forEach(function(x){if(l.indexOf(x)<0){l.push(x);n.espec++}})});
   if(!p.perg)p.perg={};Object.keys(f.perg||{}).forEach(function(k){var l=p.perg[k]=p.perg[k]||(ESP[k]?ESP[k].q.slice():[]);f.perg[k].forEach(function(x){if(!l.some(function(y){return norm(y)===norm(x)})){l.push(x);n.perg++}})});
   return n;
@@ -429,7 +431,7 @@ function docSalva(i){
   var p=S.profiles[r.pac];if(!p.docs)p.docs=[];
   if(p.docs.some(function(d){return d.file===r.file.name&&d.size===r.file.size})&&!confirm('Este arquivo já está guardado em '+p.nome.split(' ')[0]+'. Salvar outra cópia?'))return;
   var id=Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);
-  var doc={tipo:r.tipo,file:r.file.name,nome:r.nome.trim(),d:r.d,em:nowStr(),id:id,mime:r.file.type||(/pdf$/i.test(r.file.name)?'application/pdf':''),size:r.file.size};
+  var doc={tipo:r.tipo,file:r.file.name,nome:r.nome.trim(),d:r.d,em:nowStr(),id:id,mime:r.file.type||(/pdf$/i.test(r.file.name)?'application/pdf':''),size:r.file.size};if(r.vinc)doc.vinc=r.vinc;
   p.docs.push(doc);docsPend.splice(i,1);save();
   if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   idbPut(r.pac+'/'+id,r.file).then(function(){toast('Documento guardado em '+p.nome.split(' ')[0]+'.')},function(){p.docs=p.docs.filter(function(d){return d!==doc});save();render(true);alert('Não consegui guardar o arquivo neste aparelho (sem espaço?). Nada foi salvo.')});
@@ -799,6 +801,117 @@ function vSintReg(){
   return h;
 }
 function saveSint(){sintSalva()}
+
+/* =====================================================================
+   v23 — Exames pendentes por consulta: marcar vários, agendar, anexar pedido/resultados
+   ===================================================================== */
+var pedSel={};
+function pedGrupos(p){
+  var g={},ord=[];
+  p.pend.forEach(function(x,i){
+    if(!x.dataSol||x.s==='a pedir'||x.s==='descartado'||x.s==='removido')return;
+    var k=(x.esp||'Sem especialidade')+'|'+x.dataSol;
+    if(!g[k]){g[k]={key:k,esp:x.esp||'Sem especialidade',dataSol:x.dataSol,idx:[]};ord.push(g[k])}
+    g[k].idx.push(i);
+  });
+  ord.forEach(function(o){o.idx.sort(function(a,b){return(p.pend[a].ord||999)-(p.pend[b].ord||999)||a-b})});
+  return ord.sort(function(a,b){return dkey(b.dataSol)<dkey(a.dataSol)?-1:dkey(b.dataSol)>dkey(a.dataSol)?1:0});
+}
+function pedLinha(p,i){
+  var x=p.pend[i],st=x.s,sub='';
+  var tag=st==='agendado'?'<span class="sp sp-relatado">Agendado</span>':st==='realizado'?'<span class="sp sp-melhorou">Realizado</span>':st==='resultado'?'<span class="sp sp-melhorou">Resultado disponível</span>':'<span class="sp sp-naoconf">Solicitado</span>';
+  if(st==='agendado'&&x.ag)sub=[x.ag.d,x.ag.hora,x.ag.local].filter(Boolean).join(' · ');
+  else if((st==='realizado'||st==='resultado')&&x.dataReal)sub='Realizado em '+x.dataReal;
+  if(x.obs)sub=(sub?sub+' · ':'')+x.obs;
+  return'<label class="prow"><input type="checkbox" '+(pedSel[i]?'checked ':'')+'onchange="pedTog('+i+',this.checked)"><span class="stx"><b>'+esc(x.n)+'</b>'+(sub?'<span>'+esc(sub)+'</span>':'')+'</span>'+tag+'</label>';
+}
+function pedBarHtml(){
+  var n=Object.keys(pedSel).filter(function(k){return pedSel[k]}).length;
+  return'<div id="pbar" class="pbar'+(n?'':' hide')+'"><b>'+n+' selecionado(s)</b><button class="btn sm" onclick="pedAgenda()">Agendar</button><button class="btn sm" style="background:var(--gold)" onclick="pedReal()">Realizados</button>'+
+    '<select onchange="pedMais(this.value);this.value=\'\'"><option value="">Mais…</option><option value="resultado">Resultado disponível</option><option value="pedido">Voltar para solicitado</option><option value="descartado">Tirar da lista</option></select>'+
+    '<button class="btn sm sec" onclick="pedSel={};render(true)">Limpar</button></div>';
+}
+function pedBar(){var e=document.getElementById('pbar');if(e)e.outerHTML=pedBarHtml()}
+function pedTog(i,on){if(on)pedSel[i]=true;else delete pedSel[i];pedBar()}
+function pedAll(gi,on){var g=pedGrupos(P())[gi];g.idx.forEach(function(i){if(on)pedSel[i]=true;else delete pedSel[i]});render(true)}
+function pedSelIdx(){return Object.keys(pedSel).filter(function(k){return pedSel[k]}).map(Number)}
+function pedResumo(p,g){
+  var c={};g.idx.forEach(function(i){c[p.pend[i].s]=(c[p.pend[i].s]||0)+1});
+  return g.idx.length+' exames · '+['pedido','agendado','realizado','resultado'].filter(function(k){return c[k]}).map(function(k){return c[k]+' '+({pedido:'solicitado(s)',agendado:'agendado(s)',realizado:'realizado(s)',resultado:'com resultado'}[k])}).join(' · ');
+}
+function pedGrupoHtml(p,g,gi){
+  var all=g.idx.every(function(i){return pedSel[i]});
+  var docs=p.docs.map(function(d,i){return{d:d,i:i}}).filter(function(o){return o.d.vinc===g.key});
+  var h='<div class="card ped"><h2>Exames pendentes — '+esc(g.esp)+'</h2><div class="mut" style="margin-bottom:6px">Solicitados em '+esc(g.dataSol)+' · '+pedResumo(p,g)+'</div>'+
+    '<label class="pall"><input type="checkbox" '+(all?'checked ':'')+'onchange="pedAll('+gi+',this.checked)"> Selecionar todos</label>'+
+    g.idx.map(function(i){return pedLinha(p,i)}).join('')+
+    '<div class="grp">Pedido médico e resultados ('+docs.length+')</div>'+
+    docs.map(function(o){return'<div class="li"><div class="exr" style="align-items:center"><div style="min-width:0"><b>'+esc(o.d.nome||o.d.file)+'</b><div class="mut">'+esc(o.d.d)+' · '+esc(o.d.tipo||'')+'</div></div></div>'+
+      (o.d.id?'<div class="row" style="margin-top:4px"><button class="btn sm" onclick="visualizaDoc('+o.i+')">Visualizar</button><button class="btn sm" style="background:var(--gold)" onclick="compartilhaDoc('+o.i+')">Compartilhar</button></div>':'<div class="mut">Original não está neste aparelho.</div>')+'</div>'}).join('')+
+    '<div class="row wrap" style="margin-top:8px"><label class="btn sm sec fbtn">'+IC.cam+' Foto do pedido<input type="file" accept="image/*,application/pdf" multiple hidden onchange="pedAnexa('+gi+',\'Pedido\',this)"></label>'+
+    '<label class="btn sm sec fbtn">'+IC.upl+' PDF dos resultados<input type="file" accept="application/pdf,image/*" multiple hidden onchange="pedAnexa('+gi+',\'Exame\',this)"></label></div>'+
+    (docs.length>1?'<div class="row" style="margin-top:6px"><button class="btn sm sec" onclick="pedCompartilha('+gi+')">'+IC.share+' Compartilhar todos os anexos</button></div>':'')+'</div>';
+  return h;
+}
+function pedidosHtml(p){
+  var gs=pedGrupos(p);if(!gs.length)return'';
+  return gs.map(function(g,gi){return pedGrupoHtml(p,g,gi)}).join('')+pedBarHtml();
+}
+var _vExBase=vExamesN;
+vExamesN=function(p){return pedidosHtml(p)+_vExBase(p)};
+
+function pedSheet(tit,corpo,ok){
+  var m=document.getElementById('pedm');if(!m){m=document.createElement('div');m.id='pedm';document.body.appendChild(m)}
+  m.innerHTML='<div class="sheet"><h2 style="margin:0 0 6px">'+tit+'</h2>'+corpo+'<div class="row" style="margin-top:12px"><button class="btn sec" onclick="pedFecha()">Cancelar</button><button class="btn" onclick="'+ok+'">Salvar</button></div></div>';
+  m.onclick=function(e){if(e.target===m)pedFecha()};
+}
+function pedFecha(){var m=document.getElementById('pedm');if(m)m.remove()}
+function pedAgenda(){
+  var ids=pedSelIdx();if(!ids.length){alert('Marque os exames.');return}
+  var p=P(),ex=ids.map(function(i){return p.pend[i].ag}).filter(Boolean)[0]||{};
+  var locais=[];p.pend.forEach(function(x){if(x.ag&&x.ag.local&&locais.indexOf(x.ag.local)<0)locais.push(x.ag.local)});
+  pedSheet('Agendar '+ids.length+' exame(s)','<label>Data</label><input type="date" id="pa_d" value="'+esc(ex.iso||'')+'"><div class="row wrap"><div><label>Horário <span class="mut">— opcional</span></label><input type="time" id="pa_h" value="'+esc(ex.hora||'')+'"></div></div>'+
+    '<label>Local</label><input id="pa_l" list="pa_ll" value="'+esc(ex.local||'')+'" placeholder="Ex.: Laboratório / endereço"><datalist id="pa_ll">'+locais.map(function(l){return'<option value="'+esc(l)+'">'}).join('')+'</datalist>','pedAgendaSalva()');
+}
+function pedAgendaSalva(){
+  var iso=val('pa_d');if(!iso){alert('Informe a data.');return}
+  var p=P(),ag={iso:iso,d:dataBR(iso),hora:val('pa_h'),local:val('pa_l')};
+  pedSelIdx().forEach(function(i){var x=p.pend[i];logAnt('pend',x);x.s='agendado';x.ag=JSON.parse(JSON.stringify(ag))});
+  var n=pedSelIdx().length;pedSel={};save();pedFecha();render(true);toast(n+' exame(s) agendado(s).');
+}
+function pedReal(){
+  var ids=pedSelIdx();if(!ids.length){alert('Marque os exames.');return}
+  pedSheet('Marcar '+ids.length+' exame(s) como realizado(s)','<label>Data da coleta</label><input type="date" id="pr_d" value="'+isoHoje()+'">','pedRealSalva()');
+}
+function pedRealSalva(){
+  var iso=val('pr_d')||isoHoje(),p=P();
+  pedSelIdx().forEach(function(i){var x=p.pend[i];logAnt('pend',x);x.s='realizado';x.dataReal=dataBR(iso)});
+  var n=pedSelIdx().length;pedSel={};save();pedFecha();render(true);toast(n+' exame(s) marcado(s) como realizado(s).');
+}
+function pedMais(v){
+  if(!v)return;var ids=pedSelIdx();if(!ids.length){alert('Marque os exames.');return}var p=P();
+  if(v==='descartado'&&!confirm('Tirar '+ids.length+' exame(s) da lista? Eles continuam no histórico.'))return;
+  ids.forEach(function(i){var x=p.pend[i];logAnt('pend',x);x.s=v});
+  pedSel={};save();render(true);
+}
+function pedAnexa(gi,tipo,inp){
+  var p=P(),g=pedGrupos(p)[gi];if(!g)return;
+  var fs=[].slice.call(inp.files).filter(function(f){return/pdf$/i.test(f.name)||f.type==='application/pdf'||/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic)$/i.test(f.name)});inp.value='';
+  if(!fs.length){alert('Escolha fotos ou PDFs.');return}
+  var base=tipo==='Pedido'?'Pedido de exames — '+g.esp+', '+g.dataSol:'Resultados — '+g.esp+' (pedido de '+g.dataSol+')';
+  var n0=p.docs.filter(function(d){return d.vinc===g.key&&d.tipo===tipo}).length,hoje=pad(new Date().getDate())+'/'+pad(new Date().getMonth()+1)+'/'+new Date().getFullYear();
+  fs.forEach(function(f,k){
+    docsPend.push({file:f,nome:base+((n0+fs.length)>1?' ('+(n0+k+1)+')':''),d:tipo==='Pedido'?g.dataSol:hoje,tipo:tipo,pac:S.cur,drive:true,vinc:g.key});
+    var idx=docsPend.length-1;docSalva(idx);if(docsPend.length>idx&&docsPend[idx]&&docsPend[idx].file===f)docsPend.splice(idx,1);
+  });
+}
+function pedCompartilha(gi){
+  var p=P(),g=pedGrupos(p)[gi];if(!g)return;
+  var is=[];p.docs.forEach(function(d,i){if(d.vinc===g.key&&d.id)is.push(i)});
+  Promise.all(is.map(docArquivo)).then(function(fs){fs=fs.filter(Boolean);if(!fs.length)return;
+    if(navigator.canShare&&navigator.canShare({files:fs}))navigator.share({files:fs,title:'Pedido de exames — '+g.esp}).catch(function(){});
+    else{fs.forEach(salvaArq);toast('Este aparelho não abre o menu de compartilhar. Baixei os arquivos.')}});
+}
 
 pintaIcones();
 render();
