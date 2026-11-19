@@ -132,7 +132,7 @@ function vSintomas(p){
     h+='<div class="card"><h2>'+esc(g)+'</h2>';
     grupos[g].forEach(function(i){
       var s=p.sint[i],hs=sintHist(p,s.n),vals=hs.slice(-5).map(function(x){return x.int}),ult=hs[hs.length-1],es=ESTS.filter(function(e){return e[0]===s.estado})[0]||ESTS[0];
-      h+='<div class="li"><div class="exr"><div><b>'+esc(s.n)+'</b><div class="mut">'+(ult?'Último: '+esc(ult.d)+' · '+ult.int+'/10':'Sem registro de intensidade')+(vals.length>1?' · evolução '+vals.join(' → '):'')+'</div></div>'+
+      h+='<div class="li"><div class="exr"><div><b>'+esc(s.n)+'</b><div class="mut">'+(s.primeiro?'Primeiro relato: '+esc(s.primeiro)+' · ':'')+(ult?'Último: '+esc(ult.d)+' · '+ult.int+'/10':'Sem registro de intensidade')+(vals.length>1?' · evolução '+vals.join(' → '):'')+'</div></div>'+
         '</div>'+
         '<div class="row" style="margin-top:4px;align-items:center"><select style="flex:1 1 auto;min-width:0" onchange="setSintEstado('+i+',this.value)">'+ESTS.map(function(e){return'<option value="'+e[0]+'"'+(e[0]===s.estado?' selected':'')+'>'+e[1]+'</option>'}).join('')+'</select><button class="btn sm" style="flex:0 0 auto" onclick="sintSel=\''+esc(s.n).replace(/'/g,"\\'")+'\';goAdd(\'sint\')">Registrar</button></div></div>';
     });
@@ -349,61 +349,6 @@ function vGeral(p){return identHtml(p)+pesoHtml(p)+especHtml(p)+vGeralBase(p)}
 /* ---------- resumo para o médico ---------- */
 ESP['Neurologista']=ESP['Neurologista']||{sint:['dor','rig','fad'],ex:['Vitamina B12','Vitamina D','TSH','Glicemia de jejum','Hemograma','Sódio','Potássio','Magnésio','CK'],pend:[],q:['Os problemas de memória podem estar relacionados aos medicamentos?','Existe alguma condição neurológica que possa explicar a rigidez muscular constante?','As dores e a fadiga são compatíveis apenas com fibromialgia?','É necessário investigar alguma doença neuromuscular?','Há indicação de eletroneuromiografia?','Quais exames laboratoriais são necessários para investigar fadiga, rigidez e alterações cognitivas?','Como diferenciar problemas de memória associados à ansiedade e depressão daqueles relacionados a TDAH?','Há necessidade de avaliação neuropsicológica?','É necessário revisar as medicações em conjunto com o psiquiatra?']};
 ESP['Psiquiatra']=ESP['Psiquiatra']||{sint:['fad'],ex:['TSH','Vitamina B12','Vitamina D'],pend:[],q:['As medicações podem estar contribuindo para sonolência, fadiga ou alterações de memória?','É necessário revisar o tratamento medicamentoso?','Como investigar sintomas sugestivos de TDAH?']};
-function relNomes(p,c){return(getRel(p)||[]).concat(c.ex||[])}
-function resumoHtml(p,esp,c){
-  var h='<h3>Resumo para consulta — '+esc(esp)+'</h3><div class="mut">Gerado em '+nowStr()+' · informações relatadas pelo paciente/acompanhante e registradas no app</div>';
-  var id=idadeDe(p.nasc),pw=(p.peso||[]).slice().sort(function(a,b){return dkey(b.d)<dkey(a.d)?-1:1})[0];
-  h+='<h4>1. Identificação</h4><ul><li>'+esc(p.nome)+(p.nasc?' · nascimento '+esc(p.nasc)+(id!==''?' ('+id+' anos)':''):'')+'</li>'+(p.altura?'<li>Altura: '+esc(p.altura)+' cm</li>':'')+(pw?'<li>Último peso registrado: '+esc(String(pw.v).replace('.',','))+' kg ('+esc(pw.d)+')</li>':'')+'</ul>';
-  var dg=(p.diag||[]).filter(function(x){return!x.fim});
-  h+='<h4>2. Diagnósticos e antecedentes</h4>';
-  if(!dg.length)h+='<div class="mut">Nenhum registrado.</div>';
-  TD.forEach(function(t){var l=dg.filter(function(x){return(x.tipo||'rel')===t[0]});if(!l.length)return;h+='<div><b>'+t[1]+'</b></div><ul>'+l.map(function(x){return'<li>'+esc(x.n)+(x.desde?' ('+esc(x.desde)+')':'')+(x.obs?' — '+esc(x.obs):'')+'</li>'}).join('')+'</ul>'});
-  var mc=p.meds.filter(function(m){return m.sit==='confirmado'}),mp=p.meds.filter(function(m){return m.sit!=='confirmado'});
-  h+='<h4>3. Medicamentos e doses confirmadas</h4>';
-  h+=mc.length?'<ul>'+mc.map(function(m){return'<li>'+esc(m.n)+' — '+esc(m.dose||'dose não informada')+(m.freq?', '+esc(m.freq):'')+(m.hor?' ('+esc(m.hor)+')':'')+(m.motivo?'. Indicação: '+esc(m.motivo):'')+(m.presc?'. Prescritor: '+esc(m.presc):'')+(m.efeitos?'. Efeitos percebidos: '+esc(m.efeitos):'')+'</li>'}).join('')+'</ul>':'<div class="mut">Nenhum com uso confirmado.</div>';
-  if(mp.length)h+='<div><b>Relatados, uso ainda NÃO confirmado</b></div><ul>'+mp.map(function(m){return'<li>'+esc(m.n)+' — dose relatada: '+esc(m.dose||'não confirmada')+(m.freq?', '+esc(m.freq):'')+'</li>'}).join('')+'</ul>';
-  h+='<h4>4. Sintomas atuais e evolução</h4>';
-  var ss=(p.sint||[]).filter(function(s){return s.estado!=='monitorar'}),mon=(p.sint||[]).filter(function(s){return s.estado==='monitorar'});
-  if(!ss.length&&!p.diario.length)h+='<div class="mut">Sem registros.</div>';
-  if(ss.length)h+='<ul>'+ss.map(function(s){var hs=sintHist(p,s.n),v=hs.slice(-4).map(function(x){return x.int}),u=hs[hs.length-1];return'<li>'+esc(s.n)+(s.estado==='investigar'?' (a investigar)':'')+(u?': '+v.join(' → ')+'/10, último em '+esc(u.d)+(u.onde?', '+esc(u.onde):'')+(u.dur?', duração '+esc(u.dur):''):': sem intensidade registrada')+'</li>'}).join('')+'</ul>';
-  if(mon.length)h+='<div class="mut">A observar (não registrados como presentes): '+esc(mon.map(function(s){return s.n}).join(', '))+'.</div>';
-  var last=p.diario.slice(-2).reverse();
-  if(last.length)h+='<div><b>Diário do dia</b></div><ul>'+last.map(function(x){return'<li>'+esc(x.d)+': dor '+(x.dor||0)+'/10, rigidez '+(x.rig||0)+'/10, fadiga '+(x.fad||0)+'/10'+(x.obs?' ('+esc(x.obs)+')':'')+'</li>'}).join('')+'</ul>';
-  var nomes=relNomes(p,c),ex=[],vistos={};
-  ultExames(p).forEach(function(e){if(nomes.some(function(n){return casaNome(e.n,n)})&&!vistos[e.n]){vistos[e.n]=1;ex.push(e)}});
-  h+='<h4>5. Exames anteriores relevantes (com datas)</h4>';
-  h+=ex.length?'<ul>'+ex.map(function(e){return'<li>'+esc(e.d)+' — '+esc(e.n)+': <b>'+esc(vtxt(e))+' '+esc(e.u||'')+'</b>'+(refTxt(e)?' (ref. do laboratório: '+esc(refTxt(e))+')':'')+'</li>'}).join('')+'</ul><div class="mut">Resultados antigos são históricos, não necessariamente atuais.</div>':'<div class="mut">Nenhum resultado relevante registrado.</div>';
-  var alt=ultExames(p).filter(function(e){return flag(e)[1]==='t-hi'});
-  h+='<h4>6. Alterações laboratoriais (fora da referência do próprio laboratório)</h4>';
-  h+=alt.length?'<ul>'+alt.map(function(e){return'<li>'+esc(e.d)+' — '+esc(e.n)+': <b>'+esc(vtxt(e))+' '+esc(e.u||'')+'</b> (ref. '+esc(refTxt(e))+')</li>'}).join('')+'</ul>':'<div class="mut">Nenhuma registrada.</div>';
-  var sol=p.pend.filter(function(x){return x.s==='pedido'||x.s==='agendado'}),sug=p.pend.filter(function(x){return(x.s||'a pedir')==='a pedir'&&(!x.esp||x.esp===esp||x.esp==='Clínico geral'||true)});
-  h+='<h4>7. Exames pendentes ou sugeridos para discussão</h4>';
-  if(sol.length)h+='<div><b>Já solicitados por médico</b></div><ul>'+sol.map(function(x){return'<li>'+esc(x.n)+(x.s==='agendado'?' (agendado)':'')+'</li>'}).join('')+'</ul>';
-  if(sug.length)h+='<div><b>Sugeridos para discutir — NÃO são pedidos médicos</b></div><ul>'+sug.map(function(x){var a=ultMatch(p,x.n);return'<li>'+esc(x.n)+(x.cond?' (condicionado à avaliação médica)':'')+' — '+esc(a?(norm(x.n)==='hemograma'?'último hemograma: '+a.d:'último resultado no histórico: '+a.d):'sem resultado no histórico')+'</li>'}).join('')+'</ul>';
-  if(!sol.length&&!sug.length)h+='<div class="mut">Nenhum.</div>';
-  var ac=(p.espec&&p.espec[esp])||[];
-  if(ac.length)h+='<h4>Pontos em acompanhamento nesta especialidade</h4><ul>'+ac.map(function(x){return'<li>'+esc(x)+'</li>'}).join('')+'</ul>';
-  var qs=getPerg(p).filter(function(x){return x.trim()});
-  h+='<h4>8. Perguntas para a consulta</h4>'+(qs.length?'<ol>'+qs.map(function(q){return'<li>'+esc(q)+'</li>'}).join('')+'</ol>':'<div class="mut">Nenhuma pergunta escrita.</div>');
-  var ob=(p.obs&&p.obs[esp])||'';if(ob.trim())h+='<h4>Observações</h4><div>'+esc(ob).replace(/\n/g,'<br>')+'</div>';
-  return h+'<div class="mut" style="margin-top:10px">Resumo de apoio, sem interpretação diagnóstica. Não é documento médico nem prescrição.</div>';
-}
-function vPreparar(p){
-  var pe=proxEsp(p);if(pe&&espAuto!==pe.id){espAuto=pe.id;espSel=pe.k}
-  var c=ESP[espSel]||{sint:['s','dor','rig','fad','res'],ex:[],pend:[],q:['Quais exames e orientações você recomenda?']};
-  var h='<div class="card noprint"><h2>Resumo para o médico</h2><label>Especialidade</label><select id="es" onchange="espSel=this.value;render(true)">'+espList().map(function(k){return'<option'+(k===espSel?' selected':'')+'>'+esc(k)+'</option>'}).join('')+'</select>'+
-    '<p class="mut" style="margin:6px 0 0">Montado sozinho com o que já está no prontuário.</p>'+
-    '<div class="row" style="margin-top:6px"><button class="btn" onclick="window.print()">🖨️ PDF</button><button class="btn sec" onclick="compartilhaResumo()">'+IC.share+' Compartilhar</button></div>'+
-    (window.G&&G.connected()?'<button class="btn sec" style="width:100%" onclick="resumoDrive()">☁ Salvar no Drive</button><p id="gmsg" class="mut"></p>':'')+'</div>';
-  h+=editConsulta(p);
-  h+='<div class="card"><div class="sheet" id="sheetres">'+resumoHtml(p,espSel,c)+'</div></div>';
-  return h;
-}
-function textoPront(p){
-  var d=document.createElement('div');d.innerHTML=resumoHtml(p,'Geral',{ex:[],sint:[]});
-  var t=d.innerText||d.textContent||'';return 'PRONTUÁRIO — '+p.nome+'\n'+t.replace(/\n{3,}/g,'\n\n');
-}
-
 /* ---------- ficha inicial (JSON) + privacidade ---------- */
 function mergeFicha(p,f){
   var n={diag:0,meds:0,sint:0,peso:0,pend:0,perg:0,espec:0};
@@ -441,18 +386,275 @@ function apagaPessoa(){
   save();Promise.all(ids.map(function(k){return idbDel(k).catch(function(){})})).then(function(){render(true);toast('Dados apagados.')});
 }
 function idbDel(k){return idb().then(function(db){return new Promise(function(res,rej){var t=db.transaction('f','readwrite');t.objectStore('f').delete(k);t.oncomplete=res;t.onerror=rej})})}
-function compartilhaDoc(i){
-  var d=P().docs[i];if(!d||!d.id)return;
-  idbGet(S.cur+'/'+d.id).then(function(b){
-    if(!b){alert('O original não está neste aparelho.');return}
-    var f=new File([b],d.file,{type:d.mime||b.type});
-    if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],title:d.file}).catch(function(){});
-    else baixaDoc(i);
+
+
+/* =====================================================================
+   DOCUMENTOS (Arquivos): só guarda o original — não lê nem interpreta resultados
+   ===================================================================== */
+var TIPOS_DOC=['Exame','Receita','Laudo','Pedido','Outro'];
+var docsPend=[],docQ='',docFil2='todos',viewerDoc=null;
+function docMsg(t){var e=document.getElementById('impst');if(e)e.textContent=t||''}
+function bonito(n){return n.replace(/\.[A-Za-z0-9]{2,5}$/,'').replace(/[_]+/g,' ').replace(/\s+/g,' ').trim()}
+function dataSug(file){
+  var n=file.name,m=/(\d{2})[-_.\/](\d{2})[-_.\/](\d{4})/.exec(n);if(m)return m[1]+'/'+m[2]+'/'+m[3];
+  m=/(\d{4})[-_.](\d{2})[-_.](\d{2})/.exec(n);if(m)return m[3]+'/'+m[2]+'/'+m[1];
+  var d=new Date(file.lastModified||Date.now());return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();
+}
+function readFiles(files){
+  var list=[].slice.call(files).filter(function(f){return/pdf$/i.test(f.name)||f.type==='application/pdf'||/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic)$/i.test(f.name)});
+  if(!list.length){docMsg('Selecione PDFs ou fotos.');return}
+  list.forEach(function(f){docsPend.push({file:f,nome:bonito(f.name),d:dataSug(f),tipo:/receita/i.test(f.name)?'Receita':/pedido/i.test(f.name)?'Pedido':/laudo/i.test(f.name)?'Laudo':'Exame',pac:S.cur,drive:true})});
+  docMsg('');stagingRefresh();
+}
+function stagingRefresh(){var e=document.getElementById('staging');if(e)e.innerHTML=renderStaged()}
+function renderStaged(){
+  var h='';
+  docsPend.forEach(function(r,i){
+    h+='<div class="card"><h2>Salvar documento</h2><div class="mut">'+esc(r.file.name)+' · '+tamanho(r.file.size)+'</div>'+
+      '<label>Paciente</label><div class="segc" id="dp'+i+'">'+Object.keys(S.profiles).filter(function(k){return k==='douglas'||k==='rodrigo'}).map(function(k){return'<button class="'+(r.pac===k?'on':'')+'" onclick="docPac('+i+',\''+k+'\')">'+esc(S.profiles[k].nome.split(' ')[0])+'</button>'}).join('')+'</div>'+
+      '<label>Nome do documento</label><input id="dn'+i+'" value="'+esc(r.nome)+'" onchange="docsPend['+i+'].nome=this.value">'+
+      '<div class="row wrap"><div><label>Data</label><input id="dd'+i+'" value="'+esc(r.d)+'" inputmode="numeric" placeholder="dd/mm/aaaa" onchange="docsPend['+i+'].d=this.value"></div>'+
+      '<div><label>Tipo</label><select onchange="docsPend['+i+'].tipo=this.value">'+TIPOS_DOC.map(function(t){return'<option'+(t===r.tipo?' selected':'')+'>'+t+'</option>'}).join('')+'</select></div></div>'+
+      (window.G&&G.connected()?'<label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" '+(r.drive?'checked ':'')+'style="width:auto" onchange="docsPend['+i+'].drive=this.checked">Guardar também no Drive</label>':'')+
+      '<div class="row"><button class="btn" onclick="docSalva('+i+')">Salvar em '+esc(S.profiles[r.pac].nome.split(' ')[0])+'</button><button class="btn sec" onclick="docsPend.splice('+i+',1);stagingRefresh()">Cancelar</button></div></div>';
+  });
+  return h;
+}
+function docPac(i,k){docsPend[i].pac=k;stagingRefresh()}
+function tamanho(b){return b>1048576?(b/1048576).toFixed(1).replace('.',',')+' MB':Math.max(1,Math.round(b/1024))+' KB'}
+function docSalva(i){
+  var r=docsPend[i];r.nome=val('dn'+i)||r.nome;r.d=val('dd'+i)||r.d;
+  if(!r.nome.trim()){alert('Dê um nome ao documento.');return}
+  if(!/^\d{2}\/\d{2}\/\d{4}$/.test(r.d)){alert('Data no formato dd/mm/aaaa.');return}
+  var p=S.profiles[r.pac];if(!p.docs)p.docs=[];
+  if(p.docs.some(function(d){return d.file===r.file.name&&d.size===r.file.size})&&!confirm('Este arquivo já está guardado em '+p.nome.split(' ')[0]+'. Salvar outra cópia?'))return;
+  var id=Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);
+  var doc={tipo:r.tipo,file:r.file.name,nome:r.nome.trim(),d:r.d,em:nowStr(),id:id,mime:r.file.type||(/pdf$/i.test(r.file.name)?'application/pdf':''),size:r.file.size};
+  p.docs.push(doc);docsPend.splice(i,1);save();
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+  idbPut(r.pac+'/'+id,r.file).then(function(){toast('Documento guardado em '+p.nome.split(' ')[0]+'.')},function(){p.docs=p.docs.filter(function(d){return d!==doc});save();render(true);alert('Não consegui guardar o arquivo neste aparelho (sem espaço?). Nada foi salvo.')});
+  if(r.drive&&window.G&&G.connected()){
+    var k=dkey(r.d),iso=k.length===8?k.slice(0,4)+'-'+k.slice(4,6)+'-'+k.slice(6):'sem-data';
+    G.uploadOriginal(r.pac,r.file,iso+' '+doc.nome).then(function(x){doc.drive=x.id;persist()}).catch(function(e){alert('O arquivo não foi guardado no Drive: '+e.message)});
+  }
+  render(true);
+}
+function docArquivo(i){
+  var d=P().docs[i];if(!d||!d.id)return Promise.resolve(null);
+  return idbGet(S.cur+'/'+d.id).then(function(b){
+    if(!b){alert('O original não está mais neste aparelho. '+(d.drive?'Ele está no Drive.':''));return null}
+    var ext=(/\.[A-Za-z0-9]{2,5}$/.exec(d.file)||[''])[0],nome=(d.nome||bonito(d.file)).replace(/[\\\/:*?"<>|]+/g,' ').trim()+ext;
+    return new File([b],nome,{type:d.mime||b.type||'application/octet-stream'});
   });
 }
-function baixaDoc(i){
-  var d=P().docs[i];if(!d||!d.id)return;
-  idbGet(S.cur+'/'+d.id).then(function(b){if(!b){alert('O original não está neste aparelho.');return}var u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=d.file;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},30000)});
+function compartilhaDoc(i){
+  docArquivo(i).then(function(f){
+    if(!f)return;
+    if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],title:f.name}).catch(function(){});
+    else{salvaArq(f);toast('Este aparelho não abre o menu de compartilhar. Baixei o arquivo.')}
+  });
+}
+function salvaArq(f){var u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},30000)}
+function baixaDoc(i){docArquivo(i).then(function(f){if(f)salvaArq(f)})}
+function renomeiaDoc(i){
+  var d=P().docs[i],n=prompt('Novo nome do documento:',d.nome||bonito(d.file));
+  if(n===null||!n.trim()||n.trim()===(d.nome||''))return;
+  if(!confirm('Renomear para "'+n.trim()+'"?'))return;
+  d.nome=n.trim();save();render(true);
+}
+function excluiDoc(i){
+  var p=P(),d=p.docs[i];
+  if(!confirm('Excluir "'+(d.nome||d.file)+'" de '+nome1(p)+'? O arquivo será apagado deste aparelho'+(d.drive?' (a cópia no Drive continua lá)':'')+'. Isso não pode ser desfeito.'))return;
+  if(!p.log)p.log=[];p.log.push({t:'doc',em:nowStr(),antes:{n:d.nome||d.file,d:d.d,tipo:d.tipo}});
+  var id=d.id;p.docs.splice(i,1);save();
+  (id?idbDel(S.cur+'/'+id).catch(function(){}):Promise.resolve()).then(function(){render(true);toast('Documento excluído.')});
+}
+/* visualizador dentro do app (PDF desenhado com pdf.js; imagens direto) */
+function visualizaDoc(i){
+  var d=P().docs[i];
+  docArquivo(i).then(function(f){
+    if(!f)return;
+    viewerDoc={i:i,f:f,z:1};
+    var o=document.getElementById('docv');if(o)o.remove();
+    o=document.createElement('div');o.id='docv';
+    o.style.cssText='position:fixed;inset:0;z-index:99;background:#2b2b2b;display:flex;flex-direction:column';
+    o.innerHTML='<div style="display:flex;gap:6px;align-items:center;padding:8px;background:var(--g);color:#fff"><button class="btn sm sec" style="background:#fff" onclick="fechaVisor()">✕ Fechar</button><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(d.nome||d.file)+'</b>'+
+      '<button class="btn sm" style="background:var(--gold);color:#fff" onclick="compartilhaDoc('+i+')">Compartilhar</button></div>'+
+      '<div style="display:flex;gap:6px;padding:6px 8px;background:#1f1f1f"><button class="btn sm sec" style="background:#fff" onclick="zoomVisor(-0.25)">−</button><button class="btn sm sec" style="background:#fff" onclick="zoomVisor(0.25)">+</button><span id="docvp" style="color:#ddd;align-self:center;font-size:13px"></span><button class="btn sm sec" style="background:#fff;margin-left:auto" onclick="baixaDoc('+i+')">Baixar</button></div>'+
+      '<div id="docvc" style="flex:1;overflow:auto;padding:8px;-webkit-overflow-scrolling:touch"></div>';
+    document.body.appendChild(o);
+    desenhaVisor();
+  });
+}
+function fechaVisor(){var o=document.getElementById('docv');if(o)o.remove();if(viewerDoc&&viewerDoc.doc){try{viewerDoc.doc.destroy()}catch(e){}}viewerDoc=null}
+function zoomVisor(dz){if(!viewerDoc)return;viewerDoc.z=Math.max(0.5,Math.min(3,viewerDoc.z+dz));desenhaVisor()}
+function desenhaVisor(){
+  var v=viewerDoc,c=document.getElementById('docvc');if(!v||!c)return;c.innerHTML='';
+  var f=v.f,isImg=/^image\//.test(f.type);
+  if(isImg){var u=URL.createObjectURL(f);c.innerHTML='<img src="'+u+'" style="width:'+Math.round(v.z*100)+'%;display:block;margin:0 auto;background:#fff">';return}
+  if(!window.pdfjsLib){c.innerHTML='<p style="color:#fff">O visualizador não carregou. Use “Baixar” para abrir o arquivo.</p>';return}
+  pdfjsLib.GlobalWorkerOptions.workerSrc='pdf.worker.min.js';
+  var go=function(doc){
+    v.doc=doc;var P0=document.getElementById('docvp');if(P0)P0.textContent=doc.numPages+' página(s)';
+    var W=Math.max(280,(c.clientWidth-16))*v.z,dpr=Math.min(window.devicePixelRatio||1,2),slots=[];
+    var obs=('IntersectionObserver' in window)?new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){obs.unobserve(en.target);desenhaPag(doc,en.target,W,dpr)}})},{root:c,rootMargin:'600px'}):null;
+    for(var n=1;n<=doc.numPages;n++){
+      var s=document.createElement('div');s.dataset.n=n;s.style.cssText='background:#fff;margin:0 auto 8px;width:'+W+'px;min-height:'+Math.round(W*1.4)+'px';c.appendChild(s);
+      if(obs)obs.observe(s);else desenhaPag(doc,s,W,dpr);
+    }
+  };
+  f.arrayBuffer().then(function(b){return pdfjsLib.getDocument({data:b}).promise}).then(go,function(){c.innerHTML='<p style="color:#fff">Não consegui exibir este PDF aqui. Use “Baixar”.</p>'});
+}
+function desenhaPag(doc,slot,W,dpr){
+  doc.getPage(+slot.dataset.n).then(function(pg){
+    var vp0=pg.getViewport({scale:1}),sc=W/vp0.width,vp=pg.getViewport({scale:sc*dpr}),cv=document.createElement('canvas');
+    cv.width=vp.width;cv.height=vp.height;cv.style.width=W+'px';cv.style.display='block';
+    slot.style.minHeight='0';slot.innerHTML='';slot.appendChild(cv);
+    pg.render({canvasContext:cv.getContext('2d'),viewport:vp});
+  });
+}
+function abreDoc(i){visualizaDoc(i)}
+
+function vArquivos(){
+  var p=P(),h='<div class="pg">'+IC.folder+'<div><h2>Arquivos</h2><p class="mut">Documentos de '+esc(nome1(p))+' · '+(p.docs.length?p.docs.length+' arquivo(s)':'nenhum ainda')+'</p></div></div>'+
+    '<div class="card"><h2>Adicionar documento</h2><p class="mut" style="margin:0 0 8px">Escolha o arquivo, confirme o paciente e salve. O original fica guardado, sem alterações.</p>'+pickBtns()+'<div id="impst" class="mut" style="margin-top:6px"></div></div><div id="staging">'+renderStaged()+'</div>';
+  var ds=p.docs.map(function(d,i){return{d:d,i:i}});
+  if(p.docs.length>4)h+='<div class="srch">'+IC.search+'<input type="search" placeholder="Buscar documento" value="'+esc(docQ)+'" oninput="docQ=this.value;docLista()" autocomplete="off"></div>';
+  h+='<div class="chips" style="margin-bottom:8px">'+['todos'].concat(TIPOS_DOC).map(function(c){return'<button class="chip'+(docFil2===c?' on':'')+'" onclick="docFil2=\''+c+'\';render(true)">'+(c==='todos'?'Todos':c)+'</button>'}).join('')+'</div><div id="doclista">'+docListaHtml(p)+'</div>';
+  h+='<details class="card"><summary><b>Exportar, Drive e backup</b></summary>'+
+    '<div class="row" style="margin-top:8px"><button class="btn sec" onclick="goTab(\'google\')">☁ Drive e sincronização</button></div>'+
+    '<div class="row" style="margin-top:8px"><button class="btn sec" onclick="exportBackup()">⬇️ Salvar backup</button><label class="btn sec" style="margin:8px 0 0;text-align:center">⬆️ Restaurar<input type="file" accept="application/json,.json" hidden onchange="importBackup(this.files[0])"></label></div>'+
+    '<div class="row" style="margin-top:8px"><label class="btn sec" style="margin:8px 0 0;text-align:center">Importar ficha (.json)<input type="file" accept=".json,application/json" style="display:none" onchange="importaFicha(this)"></label></div>'+
+    '<p class="mut">O backup guarda os dois perfis, mas <b>não inclui os arquivos originais</b> (PDFs e fotos): eles ficam neste aparelho e, se você quiser, no Drive. Guarde em local seguro: contém dados de saúde.</p></details>';
+  h+='<details class="card"><summary><b>Privacidade e segurança</b></summary><p class="mut">Os documentos ficam só neste aparelho, atrás do PIN do app, separados por pessoa. O app <b>não lê nem interpreta</b> o conteúdo dos arquivos e não os envia a nenhuma inteligência artificial. Só vão ao Google Drive se você conectar o Drive e marcar essa opção.</p><div class="row"><button class="btn sec" onclick="exportaPessoa()">Exportar dados de '+esc(nome1(p))+'</button><button class="btn sec" style="color:var(--bad)" onclick="apagaPessoa()">Excluir dados de '+esc(nome1(p))+'</button></div></details>';
+  return h;
+}
+function docLista(){var e=document.getElementById('doclista');if(e)e.innerHTML=docListaHtml(P())}
+function docListaHtml(p){
+  var q=norm(docQ.trim()),ds=p.docs.map(function(d,i){return{d:d,i:i}}).filter(function(o){
+    var t=o.d.tipo||'Outro';if(/laudo laboratorial|bioimped|consulta/i.test(t))t='Exame';if(/receita/i.test(t))t='Receita';
+    return(docFil2==='todos'||t===docFil2)&&(!q||norm((o.d.nome||o.d.file)+' '+o.d.d+' '+(o.d.tipo||'')).indexOf(q)>-1);
+  }).sort(function(a,b){return dkey(b.d.d)<dkey(a.d.d)?-1:dkey(b.d.d)>dkey(a.d.d)?1:0});
+  if(!ds.length)return'<div class="card"><div class="empty">'+(p.docs.length?'Nenhum documento neste filtro.':'Nenhum documento ainda.')+'</div></div>';
+  var h='',ano=null;
+  ds.forEach(function(o){
+    var d=o.d,y=(d.d||'').slice(6)||'Sem data';
+    if(y!==ano){if(ano!==null)h+='</div>';ano=y;h+='<div class="card"><h2>'+esc(y)+'</h2>'}
+    h+='<div class="li"><div class="exr" style="align-items:flex-start"><div style="min-width:0"><b>'+esc(d.nome||bonito(d.file))+'</b><div class="mut">'+esc(d.d||'sem data')+' · '+esc(d.tipo||'Documento')+(d.size?' · '+tamanho(d.size):'')+(d.drive?' · no Drive':'')+'</div></div></div>'+
+      (d.id?'<div class="row" style="margin-top:6px"><button class="btn sm" onclick="visualizaDoc('+o.i+')">Visualizar</button><button class="btn sm" style="background:var(--gold)" onclick="compartilhaDoc('+o.i+')">Compartilhar</button></div>'+
+        '<div class="row" style="margin-top:4px"><button class="btn sm sec" onclick="baixaDoc('+o.i+')">Baixar</button><button class="btn sm sec" onclick="renomeiaDoc('+o.i+')">Renomear</button><button class="btn sm sec" style="color:var(--bad)" onclick="excluiDoc('+o.i+')">Excluir</button></div>'
+        :'<div class="mut" style="margin-top:4px">Original não está neste aparelho.</div><div class="row" style="margin-top:4px"><button class="btn sm sec" onclick="renomeiaDoc('+o.i+')">Renomear</button><button class="btn sm sec" style="color:var(--bad)" onclick="excluiDoc('+o.i+')">Excluir</button></div>')+'</div>';
+  });
+  return h+'</div>';
+}
+
+/* Adicionar: exame = só digitar; documento = arquivo */
+function vAdicionar(){
+  var p=P();
+  if(!addSec){
+    return'<div class="pg">'+IC.plus+'<div><h2>Adicionar</h2><p class="mut">para '+esc(nome1(p))+' — o que você quer registrar?</p></div></div>'+
+    '<div class="g2 tiles"><button class="tl" onclick="goAdd(\'sint\')">'+IC.wave+'<b>Sintoma</b></button><button class="tl" onclick="goAdd(\'med\')">'+IC.pill+'<b>Medicamento</b></button>'+
+    '<button class="tl" onclick="goAdd(\'consulta\')">'+IC.cal+'<b>Consulta</b></button><button class="tl" onclick="goAdd(\'doc\')">'+IC.upl+'<b>Documento</b></button>'+
+    '<button class="tl wide" onclick="goAdd(\'exame\')">'+IC.flask+'<b>Digitar um resultado de exame</b></button></div>';
+  }
+  var back=voltaBtn("addSec=null;render()",{sint:'Registrar sintoma',med:'Novo medicamento',exame:'Resultado de exame',consulta:'Nova consulta',doc:'Novo documento'}[addSec]);
+  if(addSec==='sint')return back+vSintReg();
+  if(addSec==='med')return back+'<div class="card">'+usoForm({tipo:'Medicamento'},-1)+'</div>';
+  if(addSec==='consulta')return back+formConsulta();
+  if(addSec==='doc')return back+'<div class="card"><h2>Documento (PDF ou foto)</h2><p class="mut" style="margin:0 0 8px">Escolha o arquivo, confirme o paciente e salve. Exames, receitas e laudos ficam guardados em Arquivos.</p>'+pickBtns()+'<div id="impst" class="mut" style="margin-top:6px"></div></div>';
+  return back+'<div class="card"><p class="mut" style="margin:0">Para guardar o PDF do exame, use <b>Documento</b>. Aqui você só digita um resultado, se quiser.</p><label>Exame</label><input id="en"><div class="row"><div><label>Valor</label><input id="ev" inputmode="decimal"></div><div><label>Unidade</label><input id="eu"></div></div>'+
+    '<label>Data</label><input id="ed" type="date" value="'+isoHoje()+'"><details class="mais"><summary>Referência do laudo (opcional)</summary><div class="row"><div><label>Mínima</label><input id="emin" inputmode="decimal"></div><div><label>Máxima</label><input id="emax" inputmode="decimal"></div></div></details>'+
+    '<button class="btn" onclick="addExame()">Salvar resultado</button></div>';
+}
+function irImportar(files){var f=[].slice.call(files);addSec=null;tab='arquivos';render();readFiles(f)}
+
+/* =====================================================================
+   PREPARAÇÃO PARA CONSULTAS: o usuário escolhe o que entra no resumo
+   ===================================================================== */
+var SEL_REL={'Neurologista':/mem[oó]ria|aten[cç][aã]o|concentra|rigidez|dor|fadiga|cansa[cç]o/i,'Psiquiatra':/depress|ansied|aten[cç][aã]o|concentra|mem[oó]ria|tdah/i,'Reumatologista':/dor|rigidez|fadiga|cansa|mal-estar|incha[cç]o|reten/i,'Coloproctologista / Gastro':/sangue|abdominal/i,'Endocrinologista':/incha|reten|fadiga|cansa/i,'Pneumologista':/respirat|fadiga/i};
+function selGet(p,esp,key,def){var s=p.resSel&&p.resSel[esp];return s&&Object.prototype.hasOwnProperty.call(s,key)?s[key]:def}
+function selSet(key,v){var p=P();if(!p.resSel)p.resSel={};(p.resSel[espSel]=p.resSel[espSel]||{})[key]=v;save();atualizaResumo()}
+function selGrupo(g,v){
+  var p=P();selItens(p,espSel).filter(function(o){return o.g===g}).forEach(function(o){if(!p.resSel)p.resSel={};(p.resSel[espSel]=p.resSel[espSel]||{})[o.k]=v});save();render(true);
+}
+function selItens(p,esp){
+  var r=[],rx=SEL_REL[esp];
+  (p.diag||[]).filter(function(x){return!x.fim}).forEach(function(x){r.push({g:'diag',k:'d:'+norm(x.n),t:x.n,sub:tdNome(x.tipo||'rel'),def:true})});
+  p.meds.forEach(function(m){r.push({g:'med',k:'m:'+norm(m.n),t:m.n,sub:(m.dose||'')+(m.sit==='confirmado'?'':' · uso não confirmado'),def:true})});
+  (p.sint||[]).forEach(function(s){r.push({g:'sint',k:'s:'+norm(s.n),t:s.n,sub:s.estado==='monitorar'?'a observar':'',def:s.estado!=='monitorar'&&(!rx||rx.test(s.n)),rel:!!(rx&&rx.test(s.n))})});
+  if(p.diario&&p.diario.length)r.push({g:'sint',k:'diario',t:'Diário do dia (dor, rigidez, fadiga)',sub:'últimos registros',def:!rx||/dor|rigidez|fadiga/.test(String(rx))});
+  return r.map(function(o){o.on=selGet(p,esp,o.k,o.def);return o});
+}
+function selHtml(p,esp){
+  var its=selItens(p,esp),G={diag:'Diagnósticos e condições',med:'Medicamentos',sint:'Sintomas'};
+  var h='<div class="card noprint"><h2>O que incluir no resumo</h2><p class="mut" style="margin:0 0 6px">Marque ou desmarque. Nada é excluído do prontuário — só deixa de aparecer neste resumo. Em <b>'+esc(esp)+'</b>, os sintomas mais ligados à especialidade já vêm marcados; os outros continuam disponíveis.</p>';
+  ['sint','med','diag'].forEach(function(g){
+    var l=its.filter(function(o){return o.g===g});if(!l.length)return;
+    if(g==='sint')l.sort(function(a,b){return(b.rel?1:0)-(a.rel?1:0)});
+    h+='<details'+(g==='sint'?' open':'')+' style="margin-top:6px"><summary><b>'+G[g]+'</b> <span class="mut">'+l.filter(function(o){return o.on}).length+' de '+l.length+'</span></summary>'+
+      '<div class="row" style="margin:4px 0"><button class="btn sm sec" onclick="selGrupo(\''+g+'\',true)">Marcar todos</button><button class="btn sm sec" onclick="selGrupo(\''+g+'\',false)">Desmarcar todos</button></div>'+
+      l.map(function(o){return'<label style="display:flex;gap:8px;align-items:flex-start;margin:4px 0;color:var(--ink)"><input type="checkbox" style="width:auto;margin-top:3px"'+(o.on?' checked':'')+' onchange="selSet(\''+o.k.replace(/'/g,"\\'")+'\',this.checked)"><span>'+esc(o.t)+(o.rel?' <span class="tag t-info">relevante</span>':'')+(o.sub?'<div class="mut">'+esc(o.sub)+'</div>':'')+'</span></label>'}).join('')+'</details>';
+  });
+  h+='<div style="margin-top:8px"><label style="display:flex;gap:8px;align-items:center;color:var(--ink);margin:4px 0"><input type="checkbox" style="width:auto"'+(selGet(p,esp,'x:avaliacao',false)?' checked':'')+' onchange="selSet(\'x:avaliacao\',this.checked)">Incluir exames em avaliação (sugeridos/solicitados)</label>'+
+    '<label style="display:flex;gap:8px;align-items:center;color:var(--ink);margin:4px 0"><input type="checkbox" style="width:auto"'+(selGet(p,esp,'x:result',false)?' checked':'')+' onchange="selSet(\'x:result\',this.checked)">Incluir resultados de exames lançados à mão</label></div></div>';
+  return h;
+}
+function atualizaResumo(){var e=document.getElementById('sheetres');if(e)e.innerHTML=resumoHtml(P(),espSel)}
+function resumoHtml(p,esp){
+  var h='<h3>Resumo para consulta — '+esc(esp)+'</h3><div class="mut">Gerado em '+nowStr()+' · informações relatadas pelo paciente ou acompanhante</div>';
+  var its=selItens(p,esp),on=function(k){var r=false;its.forEach(function(o){if(o.k===k)r=o.on});return r};
+  var id=idadeDe(p.nasc);
+  h+='<h4>1. Identificação do paciente</h4><ul><li>'+esc(p.nome)+(p.nasc?' · nascimento '+esc(p.nasc)+(id!==''?' ('+id+' anos)':''):'')+'</li></ul>';
+  var dg=(p.diag||[]).filter(function(x){return!x.fim&&on('d:'+norm(x.n))});
+  h+='<h4>2. Diagnósticos e antecedentes</h4>';
+  if(!dg.length)h+='<div class="mut">Nenhum selecionado.</div>';
+  TD.forEach(function(t){var l=dg.filter(function(x){return(x.tipo||'rel')===t[0]});if(!l.length)return;h+='<div><b>'+t[1]+'</b></div><ul>'+l.map(function(x){return'<li>'+esc(x.n)+(x.desde?' ('+esc(x.desde)+')':'')+(x.obs?' — '+esc(x.obs):'')+'</li>'}).join('')+'</ul>'});
+  var ms=p.meds.filter(function(m){return on('m:'+norm(m.n))});
+  h+='<h4>3. Medicamentos e doses</h4>';
+  h+=ms.length?'<ul>'+ms.map(function(m){return'<li>'+esc(m.n)+' — '+esc(m.dose||'dose não informada')+(m.freq?', '+esc(m.freq):'')+(m.hor?' ('+esc(m.hor)+')':'')+(m.motivo?'. Indicação: '+esc(m.motivo):'')+(m.presc?'. Prescritor: '+esc(m.presc):'')+(m.inicio?'. Início: '+esc(m.inicio):'')+(m.efeitos?'. Efeitos percebidos: '+esc(m.efeitos):'')+(m.sit==='confirmado'?'':' <i>(uso relatado, ainda não confirmado)</i>')+'</li>'}).join('')+'</ul>':'<div class="mut">Nenhum selecionado.</div>';
+  var ss=(p.sint||[]).filter(function(s){return on('s:'+norm(s.n))});
+  h+='<h4>4. Sintomas selecionados e evolução</h4>';
+  if(!ss.length&&!on('diario'))h+='<div class="mut">Nenhum selecionado.</div>';
+  if(ss.length)h+='<ul>'+ss.map(function(s){var hs=sintHist(p,s.n),v=hs.slice(-5).map(function(x){return x.int}),u=hs[hs.length-1];
+    return'<li><b>'+esc(s.n)+'</b>'+(s.estado==='investigar'?' (em investigação)':s.estado==='monitorar'?' (a observar; não registrado como presente)':'')+
+      (hs.length?': intensidade '+v.join(' → ')+'/10 (último em '+esc(u.d)+')'+(u.freq?', '+esc(u.freq.toLowerCase()):'')+(u.dur?', duração '+esc(u.dur):'')+(u.onde?', local: '+esc(u.onde):''):': sem intensidade registrada')+
+      (s.primeiro?'. Primeiro relato: '+esc(s.primeiro):hs.length?'. Primeiro registro: '+esc(hs[0].d):'')+(s.obs?'. '+esc(s.obs):'')+(u&&u.obs?'. Obs.: '+esc(u.obs):'')+'</li>'}).join('')+'</ul>';
+  if(on('diario')){var last=p.diario.slice(-3).reverse();h+='<div><b>Diário do dia</b></div><ul>'+last.map(function(x){return'<li>'+esc(x.d)+': dor '+(x.dor||0)+'/10, rigidez '+(x.rig||0)+'/10, fadiga '+(x.fad||0)+'/10'+(x.obs?' ('+esc(x.obs)+')':'')+'</li>'}).join('')+'</ul>'}
+  var qs=getPerg(p).filter(function(x){return x.trim()});
+  h+='<h4>5. Perguntas para o especialista</h4>'+(qs.length?'<ol>'+qs.map(function(q){return'<li>'+esc(q)+'</li>'}).join('')+'</ol>':'<div class="mut">Nenhuma pergunta escrita.</div>');
+  var ob=(p.obs&&p.obs[esp])||'';
+  h+='<h4>6. Observações adicionais</h4>'+(ob.trim()?'<div>'+esc(ob).replace(/\n/g,'<br>')+'</div>':'<div class="mut">Nenhuma.</div>');
+  if(selGet(p,esp,'x:avaliacao',false)){
+    var ev=p.pend.filter(function(x){return x.s!=='descartado'&&x.s!=='removido'});
+    if(ev.length)h+='<h4>Exames em avaliação</h4><ul>'+ev.map(function(x){return'<li>'+esc(x.n)+' — '+esc(estNome(x.s||'a pedir'))+(x.s==='a pedir'||!x.s?' (ideia para discutir, não é pedido médico)':'')+(x.cond?' · condicionado à avaliação médica':'')+'</li>'}).join('')+'</ul>';
+  }
+  if(selGet(p,esp,'x:result',false)&&p.exames.length)h+='<h4>Resultados de exames lançados</h4><ul>'+ultExames(p).map(function(e){return'<li>'+esc(e.d)+' — '+esc(e.n)+': '+esc(vtxt(e))+' '+esc(e.u||'')+(refTxt(e)?' (ref. '+esc(refTxt(e))+')':'')+'</li>'}).join('')+'</ul><div class="mut">Resultados antigos são históricos, não necessariamente atuais.</div>';
+  return h+'<div class="mut" style="margin-top:10px">Resumo de apoio, sem interpretação diagnóstica. Não é documento médico nem prescrição.</div>';
+}
+function vPreparar(p){
+  var pe=proxEsp(p);if(pe&&espAuto!==pe.id){espAuto=pe.id;espSel=pe.k}
+  var h='<div class="card noprint"><h2>Preparar consulta</h2><label>Especialidade</label><select id="es" onchange="espSel=this.value;render(true)">'+espList().map(function(k){return'<option'+(k===espSel?' selected':'')+'>'+esc(k)+'</option>'}).join('')+'</select>'+
+    '<div class="row" style="margin-top:8px"><button class="btn" onclick="window.print()">🖨️ Salvar em PDF</button><button class="btn sec" onclick="compartilhaResumo()">'+IC.share+' Compartilhar</button></div>'+
+    '<p class="mut" style="margin:6px 0 0">Compartilhar abre o menu do celular (WhatsApp, Gmail…). Para PDF, escolha “Salvar como PDF” na janela de impressão.</p>'+
+    (window.G&&G.connected()?'<button class="btn sec" style="width:100%;margin-top:6px" onclick="resumoDrive()">☁ Salvar no Drive</button><p id="gmsg" class="mut"></p>':'')+'</div>';
+  h+=selHtml(p,espSel)+editConsulta(p);
+  h+='<div class="card"><div class="sheet" id="sheetres">'+resumoHtml(p,espSel)+'</div></div>';
+  return h;
+}
+function textoPront(p){
+  var d=document.createElement('div');d.innerHTML=resumoHtml(p,'Geral');
+  var t=d.innerText||d.textContent||'';return'PRONTUÁRIO — '+p.nome+'\n'+t.replace(/\n{3,}/g,'\n\n');
+}
+
+/* Saúde: botões simples e título da área */
+function vSaude(){
+  var p=P();
+  if(saudeSec)return saudeSub(p);
+  return'<div class="pg">'+IC.heart+'<div><h2 style="font-size:28px;font-family:Georgia,serif">Saúde</h2><p class="mut">Acompanhamento clínico de '+esc(nome1(p))+'</p></div></div>'+
+    '<div class="srch">'+IC.search+'<input id="busca" type="search" placeholder="Pesquisar no prontuário" value="'+esc(qBusca)+'" oninput="doBusca(this.value)" autocomplete="off"></div>'+
+    '<div id="bres">'+(qBusca.trim()?buscaHtml(p,qBusca):'')+'</div><div id="sechome" class="'+(qBusca.trim()?'hide':'')+'">'+
+    '<div class="row wrap" style="margin-bottom:8px"><button class="btn" onclick="goAdd(\'med\')">'+IC.pill+' Adicionar medicamento</button><button class="btn" onclick="goAdd(\'sint\')">'+IC.wave+' Registrar sintoma</button></div>'+
+    '<div class="row wrap" style="margin-bottom:10px"><button class="btn sec" onclick="goCons(\'preparar\')">Preparar consulta</button><button class="btn sec" onclick="document.getElementById(\'busca\').focus()">Atualizar informação</button></div>'+secCards(p)+'</div>';
 }
 
 /* recebe PDFs/fotos do menu Compartilhar do Android */
@@ -466,7 +668,7 @@ function recebeCompartilhado(){
     })}).then(function(fs){
       history.replaceState(null,'',location.pathname);caches.delete('saude-share');
       if(!fs.length)return;
-      goAdd('doc');toast('Recebido pelo Compartilhar. Será salvo em '+nome1(P())+' — confira o perfil.');readFiles(fs);
+      tab='arquivos';render();toast('Recebido pelo Compartilhar. Confirme o paciente e salve.');readFiles(fs);
     });
   },300);
 }

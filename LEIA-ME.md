@@ -46,3 +46,6 @@ Reformulação: 5 áreas (Início, Saúde, Arquivos, Consultas, Adicionar); pron
 
 ## v18 (19/11/2026)
 Diagnósticos por tipo (confirmado/investigação/relatado/antecedente), medicamentos com situação 'pendente de confirmação', sintomas 0–10, leitura de laudos paginados com referência do próprio laboratório e categorias, exames em avaliação (sugerido ≠ solicitado), resumo para o médico em 8 seções, ficha inicial importável (.json), compartilhar pelo Android, exportar/excluir dados por pessoa.
+
+## v19 (19/11/2026)
+Arquivos virou um cofre simples de documentos: escolher, confirmar paciente, nome e data, salvar. Visualizar dentro do app, compartilhar o PDF verdadeiro pelo menu do Android, baixar, renomear e excluir (com confirmação). A leitura automática de resultados foi desligada (o código antigo ficou sem uso). Resumo para consulta com seleção do que entra.

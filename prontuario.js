@@ -35,7 +35,7 @@ function itens(p){
   (p.medsOld||[]).forEach(function(m){r.push({cat:'Medicamento encerrado',t:m.n+(m.dose?' — '+m.dose:''),s:'encerrado em '+(m.fim||''),d:m.fim||'',go:"goSaude('meds')"})});
   (p.consultas||[]).forEach(function(c){r.push({cat:'Consulta',t:c.esp,s:c.nota,d:c.d,go:"goCons('depois')"})});
   p.agenda.forEach(function(a){r.push({cat:'Consulta agendada',t:a.t,s:(a.l||'')+' '+a.h,d:fmtDate(a.d),go:"goCons('proximas')"})});
-  p.docs.forEach(function(d){r.push({cat:'Documento',t:d.file,s:d.tipo+(d.res?' · '+d.res:''),d:d.d||'',go:"goTab('arquivos')"})});
+  p.docs.forEach(function(d){r.push({cat:'Documento',t:d.nome||d.file,s:d.tipo+(d.res?' · '+d.res:''),d:d.d||'',go:"goTab('arquivos')"})});
   p.bio.forEach(function(b){r.push({cat:'Bioimpedância',t:'Peso '+nz(b.peso)+' kg · gordura '+nz(b.pgc)+'%',s:'',d:b.d,go:"goSaude('geral')"})});
   (p.log||[]).forEach(function(l){r.push({cat:'Alteração',t:({med:'Medicamento',diag:'Diagnóstico',exame:'Exame',sint:'Sintoma',ident:'Identificação'}[l.t]||l.t)+': '+((l.antes&&l.antes.n)||''),s:'versão anterior guardada',d:(l.em||'').slice(0,10),go:"goSaude('"+(l.t==='diag'?'diag':'meds')+"')"})});
   return r;

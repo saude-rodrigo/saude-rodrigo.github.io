@@ -238,3 +238,5 @@ input,select,textarea{max-width:100%}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .pg .btn svg{width:18px;height:18px;color:#fff;margin:0}
 .btn svg{flex:none}
+#docv .btn{width:auto;flex:0 0 auto;padding:7px 12px;min-height:0}
+#docv #docvp{flex:1}
