@@ -28,7 +28,7 @@
     <span class="vl"></span>
     <div class="htit"><h1>Saúde a Dois</h1><div class="sub">Acompanhamento de Saúde e Bem-Estar</div></div>
     <div class="hbt">
-      <button class="lock" id="bbell" onclick="goTab('agenda')" aria-label="Lembretes" title="Lembretes"></button>
+      <button class="lock" id="bbell" onclick="goCons('proximas')" aria-label="Lembretes" title="Lembretes"></button>
       <button class="lock" id="bgear" onclick="goTab('config')" aria-label="Configurações" title="Configurações"></button>
     </div>
   </div>
@@ -37,16 +37,15 @@
     <button data-p="rodrigo"><span class="u"></span>Rodrigo</button>
   </div>
 </header>
-<div id="menu" class="hide"><div class="pn"></div></div>
 
 <main id="view"></main>
 
 <nav id="nav">
-  <button data-t="resumo" class="on"><span class="i" data-ic="home"></span>Resumo</button>
-  <button data-t="exames"><span class="i" data-ic="flask"></span>Exames</button>
-  <button data-t="historico"><span class="i" data-ic="book"></span>Diário</button>
-  <button data-t="agenda"><span class="i" data-ic="cal"></span>Agenda</button>
-  <button data-t="consulta"><span class="i" data-ic="steth"></span>Consulta</button>
+  <button data-t="inicio" class="on"><span class="i" data-ic="home"></span>Início</button>
+  <button data-t="saude"><span class="i" data-ic="heart"></span>Saúde</button>
+  <button data-t="arquivos"><span class="i" data-ic="folder"></span>Arquivos</button>
+  <button data-t="consultas"><span class="i" data-ic="cal"></span>Consultas</button>
+  <button data-t="adicionar" class="add"><span class="i" data-ic="plus"></span>Adicionar</button>
 </nav>
 
 <script src="icons.js"></script>
@@ -54,5 +53,6 @@
 <script src="pdf.min.js"></script>
 <script src="google.js"></script>
 <script src="app.js"></script>
+<script src="prontuario.js"></script>
 </body>
 </html>

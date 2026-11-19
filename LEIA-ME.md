@@ -39,3 +39,7 @@ Ao atualizar o app depois: aumente o número em `sw.js` (`saude-a-dois-v1` → `
 - A integração Google foi testada com simulação, não com a sua conta; pode exigir pequenos ajustes no primeiro teste real.
 - A leitura de PDF funciona com PDFs que têm texto; imagens e laudos escaneados ficam só como documento anexado.
 - Resultados de exames que não são de sangue (imagem, etc.) são guardados como documento, não como valores.
+
+
+## v17 (19/11/2026)
+Reformulação: 5 áreas (Início, Saúde, Arquivos, Consultas, Adicionar); prontuário por pessoa com diagnósticos, sintomas, medicamentos, exames e histórico; busca; importação de PDF/foto com leitura no aparelho (OCR) e conferência; resumo médico automático; histórico de alterações preservado.
