@@ -357,7 +357,7 @@ function mergeFicha(p,f){
   ['nasc','altura','sexoNasc'].forEach(function(k){if(id[k]&&!p[k])p[k]=id[k]});
   if(!p.diag)p.diag=[];(f.diag||[]).forEach(function(x){if(p.diag.some(function(y){return norm(y.n)===norm(x.n)}))return;x.em=nowStr();p.diag.push(x);n.diag++});
   (f.meds||[]).forEach(function(x){if(p.meds.some(function(y){return norm(y.n).split(' ')[0]===norm(x.n).split(' ')[0]}))return;p.meds.push(x);n.meds++});
-  if(!p.sint)p.sint=[];(f.sint||[]).forEach(function(x){if(p.sint.some(function(y){return norm(y.n)===norm(x.n)}))return;p.sint.push(x);n.sint++});
+  if(!p.sint)p.sint=[];(f.sint||[]).forEach(function(x){var ex=null;p.sint.forEach(function(y){if(norm(y.n)===norm(x.n))ex=y});if(ex){var ch=false;if(ex.estado==='monitorar'&&x.estado==='relatado'){ex.estado='relatado';if(ex.grupo&&ex.grupo.indexOf('A observar')===0&&x.grupo)ex.grupo=x.grupo;ch=true}if(x.obs&&(ex.obs||'').indexOf(x.obs)<0){ex.obs=(ex.obs?ex.obs+' · ':'')+x.obs;ch=true}if(x.primeiro&&!ex.primeiro){ex.primeiro=x.primeiro;ch=true}if(ch)n.atual=(n.atual||0)+1;return}p.sint.push(x);n.sint++});
   if(!p.peso)p.peso=[];(f.peso||[]).forEach(function(x){if(p.peso.some(function(y){return y.d===x.d&&+y.v===+x.v}))return;p.peso.push(x);n.peso++});
   (f.pend||[]).forEach(function(x){if(p.pend.some(function(y){return norm(y.n)===norm(x.n)&&y.s!=='descartado'}))return;p.pend.push(x);n.pend++});
   if(!p.espec)p.espec={};Object.keys(f.espec||{}).forEach(function(k){var l=p.espec[k]=p.espec[k]||[];f.espec[k].forEach(function(x){if(l.indexOf(x)<0){l.push(x);n.espec++}})});
@@ -372,7 +372,7 @@ function importaFicha(inp){
     if(j.pessoa&&j.pessoa!==S.cur){alert('Esta ficha é do perfil “'+j.pessoa+'”. Troque para esse perfil antes de importar.');return}
     if(!confirm('Importar a ficha para '+P().nome+'? Nada será apagado e itens que já existem não são duplicados.'))return;
     var n=mergeFicha(P(),j);save();render(true);
-    toast('Ficha importada: '+n.diag+' diagnósticos, '+n.meds+' medicamentos, '+n.sint+' sintomas, '+n.pend+' exames em avaliação.');
+    toast('Ficha importada: '+n.diag+' diagnósticos, '+n.meds+' medicamentos, '+n.sint+' sintomas novos'+(n.atual?', '+n.atual+' atualizados':'')+', '+n.pend+' exames em avaliação.');
   });
   inp.value='';
 }
