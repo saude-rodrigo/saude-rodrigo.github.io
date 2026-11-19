@@ -116,7 +116,7 @@ function comprei(i){
 }
 function alertasEstoque(){
   var out=[];
-  Object.keys(S.profiles).forEach(function(k){
+  [S.cur].forEach(function(k){
     (S.profiles[k].meds||[]).forEach(function(m){
       var e=estoque(m);
       if(e&&e.faltam<=e.aviso)out.push({quem:S.profiles[k].nome.split(' ')[0],n:m.n,e:e});
@@ -421,7 +421,7 @@ function addDia(){
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v20 · 19/11/2026';
+var APP_VER='v21 · 19/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+
