@@ -275,3 +275,8 @@ input,select,textarea{max-width:100%}
 #pedm .sheet{background:var(--bg);width:100%;max-width:640px;margin:0 auto;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
 @media print{.pbar,#pedm{display:none!important}}
 body.pbarOn{}
+
+/* v24 */
+.pname{flex:1;min-width:0;border:0;background:none;text-align:left;font:inherit;padding:2px 0;color:var(--ink)}.pname b{font-size:15px}.pname span{display:block;font-size:13px;color:var(--mut)}
+.prow .sp{flex:none}
+textarea{width:100%;font:inherit;border:1.5px solid var(--line);border-radius:12px;padding:9px;background:var(--card);color:var(--ink)}

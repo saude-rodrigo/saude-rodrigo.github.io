@@ -2,7 +2,7 @@
    Este arquivo vem DEPOIS de prontuario.js e substitui as versões mais simples das funções abaixo. */
 
 var TD=[['conf','Diagnóstico confirmado'],['inv','Em investigação / suspeita'],['rel','Condição relatada (sem documento)'],['ant','Antecedente / histórico']];
-var EST=[['a pedir','Sugerido'],['pedido','Solicitado pelo médico'],['agendado','Agendado'],['realizado','Realizado'],['resultado','Resultado disponível']];
+var EST=[['a pedir','Sugerido'],['pedido','Solicitado pelo médico'],['agendado','Agendado'],['realizado','Realizado'],['resultado','Resultado disponível'],['cancelado','Cancelado']];
 var CATS=['Hemograma','Metabolismo','Função hepática','Renal','Tireoide','Hormônios','Inflamação','Outras'];
 var editEx=-1,sintSel='',catAberta={};
 function tdNome(k){var r='';TD.forEach(function(t){if(t[0]===k)r=t[1]});return r||'Condição relatada (sem documento)'}
@@ -431,7 +431,7 @@ function docSalva(i){
   var p=S.profiles[r.pac];if(!p.docs)p.docs=[];
   if(p.docs.some(function(d){return d.file===r.file.name&&d.size===r.file.size})&&!confirm('Este arquivo já está guardado em '+p.nome.split(' ')[0]+'. Salvar outra cópia?'))return;
   var id=Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);
-  var doc={tipo:r.tipo,file:r.file.name,nome:r.nome.trim(),d:r.d,em:nowStr(),id:id,mime:r.file.type||(/pdf$/i.test(r.file.name)?'application/pdf':''),size:r.file.size};if(r.vinc)doc.vinc=r.vinc;
+  var doc={tipo:r.tipo,file:r.file.name,nome:r.nome.trim(),d:r.d,em:nowStr(),id:id,mime:r.file.type||(/pdf$/i.test(r.file.name)?'application/pdf':''),size:r.file.size};if(r.vinc)doc.vinc=r.vinc;if(r.exame)doc.exame=r.exame;
   p.docs.push(doc);docsPend.splice(i,1);save();
   if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   idbPut(r.pac+'/'+id,r.file).then(function(){toast('Documento guardado em '+p.nome.split(' ')[0]+'.')},function(){p.docs=p.docs.filter(function(d){return d!==doc});save();render(true);alert('Não consegui guardar o arquivo neste aparelho (sem espaço?). Nada foi salvo.')});
@@ -557,6 +557,7 @@ function vAdicionar(){
     return'<div class="pg">'+IC.plus+'<div><h2>Adicionar</h2><p class="mut">para '+esc(nome1(p))+' — o que você quer registrar?</p></div></div>'+
     '<div class="g2 tiles"><button class="tl" onclick="goAdd(\'sint\')">'+IC.wave+'<b>Sintoma</b></button><button class="tl" onclick="goAdd(\'med\')">'+IC.pill+'<b>Medicamento</b></button>'+
     '<button class="tl" onclick="goAdd(\'consulta\')">'+IC.cal+'<b>Consulta</b></button><button class="tl" onclick="goAdd(\'doc\')">'+IC.upl+'<b>Documento</b></button>'+
+    '<button class="tl wide" onclick="goSaude(\'exames\');setTimeout(pedNova,80)">'+IC.clip+'<b>Pedido de exames (nova solicitação)</b></button>'+
     '<button class="tl wide" onclick="goAdd(\'exame\')">'+IC.flask+'<b>Digitar um resultado de exame</b></button></div>';
   }
   var back=voltaBtn("addSec=null;render()",{sint:'Registrar sintoma',med:'Novo medicamento',exame:'Resultado de exame',consulta:'Nova consulta',doc:'Novo documento'}[addSec]);
@@ -806,7 +807,9 @@ function saveSint(){sintSalva()}
    v23 — Exames pendentes por consulta: marcar vários, agendar, anexar pedido/resultados
    ===================================================================== */
 var pedSel={};
+var pedSelOwner='';
 function pedGrupos(p){
+  if(pedSelOwner!==S.cur){pedSel={};pedSelOwner=S.cur}
   var g={},ord=[];
   p.pend.forEach(function(x,i){
     if(!x.dataSol||x.s==='a pedir'||x.s==='descartado'||x.s==='removido')return;
@@ -817,20 +820,6 @@ function pedGrupos(p){
   ord.forEach(function(o){o.idx.sort(function(a,b){return(p.pend[a].ord||999)-(p.pend[b].ord||999)||a-b})});
   return ord.sort(function(a,b){return dkey(b.dataSol)<dkey(a.dataSol)?-1:dkey(b.dataSol)>dkey(a.dataSol)?1:0});
 }
-function pedLinha(p,i){
-  var x=p.pend[i],st=x.s,sub='';
-  var tag=st==='agendado'?'<span class="sp sp-relatado">Agendado</span>':st==='realizado'?'<span class="sp sp-melhorou">Realizado</span>':st==='resultado'?'<span class="sp sp-melhorou">Resultado disponível</span>':'<span class="sp sp-naoconf">Solicitado</span>';
-  if(st==='agendado'&&x.ag)sub=[x.ag.d,x.ag.hora,x.ag.local].filter(Boolean).join(' · ');
-  else if((st==='realizado'||st==='resultado')&&x.dataReal)sub='Realizado em '+x.dataReal;
-  if(x.obs)sub=(sub?sub+' · ':'')+x.obs;
-  return'<label class="prow"><input type="checkbox" '+(pedSel[i]?'checked ':'')+'onchange="pedTog('+i+',this.checked)"><span class="stx"><b>'+esc(x.n)+'</b>'+(sub?'<span>'+esc(sub)+'</span>':'')+'</span>'+tag+'</label>';
-}
-function pedBarHtml(){
-  var n=Object.keys(pedSel).filter(function(k){return pedSel[k]}).length;
-  return'<div id="pbar" class="pbar'+(n?'':' hide')+'"><b>'+n+' selecionado(s)</b><button class="btn sm" onclick="pedAgenda()">Agendar</button><button class="btn sm" style="background:var(--gold)" onclick="pedReal()">Realizados</button>'+
-    '<select onchange="pedMais(this.value);this.value=\'\'"><option value="">Mais…</option><option value="resultado">Resultado disponível</option><option value="pedido">Voltar para solicitado</option><option value="descartado">Tirar da lista</option></select>'+
-    '<button class="btn sm sec" onclick="pedSel={};render(true)">Limpar</button></div>';
-}
 function pedBar(){var e=document.getElementById('pbar');if(e)e.outerHTML=pedBarHtml()}
 function pedTog(i,on){if(on)pedSel[i]=true;else delete pedSel[i];pedBar()}
 function pedAll(gi,on){var g=pedGrupos(P())[gi];g.idx.forEach(function(i){if(on)pedSel[i]=true;else delete pedSel[i]});render(true)}
@@ -838,24 +827,6 @@ function pedSelIdx(){return Object.keys(pedSel).filter(function(k){return pedSel
 function pedResumo(p,g){
   var c={};g.idx.forEach(function(i){c[p.pend[i].s]=(c[p.pend[i].s]||0)+1});
   return g.idx.length+' exames · '+['pedido','agendado','realizado','resultado'].filter(function(k){return c[k]}).map(function(k){return c[k]+' '+({pedido:'solicitado(s)',agendado:'agendado(s)',realizado:'realizado(s)',resultado:'com resultado'}[k])}).join(' · ');
-}
-function pedGrupoHtml(p,g,gi){
-  var all=g.idx.every(function(i){return pedSel[i]});
-  var docs=p.docs.map(function(d,i){return{d:d,i:i}}).filter(function(o){return o.d.vinc===g.key});
-  var h='<div class="card ped"><h2>Exames pendentes — '+esc(g.esp)+'</h2><div class="mut" style="margin-bottom:6px">Solicitados em '+esc(g.dataSol)+' · '+pedResumo(p,g)+'</div>'+
-    '<label class="pall"><input type="checkbox" '+(all?'checked ':'')+'onchange="pedAll('+gi+',this.checked)"> Selecionar todos</label>'+
-    g.idx.map(function(i){return pedLinha(p,i)}).join('')+
-    '<div class="grp">Pedido médico e resultados ('+docs.length+')</div>'+
-    docs.map(function(o){return'<div class="li"><div class="exr" style="align-items:center"><div style="min-width:0"><b>'+esc(o.d.nome||o.d.file)+'</b><div class="mut">'+esc(o.d.d)+' · '+esc(o.d.tipo||'')+'</div></div></div>'+
-      (o.d.id?'<div class="row" style="margin-top:4px"><button class="btn sm" onclick="visualizaDoc('+o.i+')">Visualizar</button><button class="btn sm" style="background:var(--gold)" onclick="compartilhaDoc('+o.i+')">Compartilhar</button></div>':'<div class="mut">Original não está neste aparelho.</div>')+'</div>'}).join('')+
-    '<div class="row wrap" style="margin-top:8px"><label class="btn sm sec fbtn">'+IC.cam+' Foto do pedido<input type="file" accept="image/*,application/pdf" multiple hidden onchange="pedAnexa('+gi+',\'Pedido\',this)"></label>'+
-    '<label class="btn sm sec fbtn">'+IC.upl+' PDF dos resultados<input type="file" accept="application/pdf,image/*" multiple hidden onchange="pedAnexa('+gi+',\'Exame\',this)"></label></div>'+
-    (docs.length>1?'<div class="row" style="margin-top:6px"><button class="btn sm sec" onclick="pedCompartilha('+gi+')">'+IC.share+' Compartilhar todos os anexos</button></div>':'')+'</div>';
-  return h;
-}
-function pedidosHtml(p){
-  var gs=pedGrupos(p);if(!gs.length)return'';
-  return gs.map(function(g,gi){return pedGrupoHtml(p,g,gi)}).join('')+pedBarHtml();
 }
 var _vExBase=vExamesN;
 vExamesN=function(p){return pedidosHtml(p)+_vExBase(p)};
@@ -888,29 +859,161 @@ function pedRealSalva(){
   pedSelIdx().forEach(function(i){var x=p.pend[i];logAnt('pend',x);x.s='realizado';x.dataReal=dataBR(iso)});
   var n=pedSelIdx().length;pedSel={};save();pedFecha();render(true);toast(n+' exame(s) marcado(s) como realizado(s).');
 }
-function pedMais(v){
-  if(!v)return;var ids=pedSelIdx();if(!ids.length){alert('Marque os exames.');return}var p=P();
-  if(v==='descartado'&&!confirm('Tirar '+ids.length+' exame(s) da lista? Eles continuam no histórico.'))return;
-  ids.forEach(function(i){var x=p.pend[i];logAnt('pend',x);x.s=v});
-  pedSel={};save();render(true);
-}
-function pedAnexa(gi,tipo,inp){
-  var p=P(),g=pedGrupos(p)[gi];if(!g)return;
-  var fs=[].slice.call(inp.files).filter(function(f){return/pdf$/i.test(f.name)||f.type==='application/pdf'||/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic)$/i.test(f.name)});inp.value='';
-  if(!fs.length){alert('Escolha fotos ou PDFs.');return}
-  var base=tipo==='Pedido'?'Pedido de exames — '+g.esp+', '+g.dataSol:'Resultados — '+g.esp+' (pedido de '+g.dataSol+')';
-  var n0=p.docs.filter(function(d){return d.vinc===g.key&&d.tipo===tipo}).length,hoje=pad(new Date().getDate())+'/'+pad(new Date().getMonth()+1)+'/'+new Date().getFullYear();
-  fs.forEach(function(f,k){
-    docsPend.push({file:f,nome:base+((n0+fs.length)>1?' ('+(n0+k+1)+')':''),d:tipo==='Pedido'?g.dataSol:hoje,tipo:tipo,pac:S.cur,drive:true,vinc:g.key});
-    var idx=docsPend.length-1;docSalva(idx);if(docsPend.length>idx&&docsPend[idx]&&docsPend[idx].file===f)docsPend.splice(idx,1);
-  });
-}
 function pedCompartilha(gi){
   var p=P(),g=pedGrupos(p)[gi];if(!g)return;
   var is=[];p.docs.forEach(function(d,i){if(d.vinc===g.key&&d.id)is.push(i)});
   Promise.all(is.map(docArquivo)).then(function(fs){fs=fs.filter(Boolean);if(!fs.length)return;
     if(navigator.canShare&&navigator.canShare({files:fs}))navigator.share({files:fs,title:'Pedido de exames — '+g.esp}).catch(function(){});
     else{fs.forEach(salvaArq);toast('Este aparelho não abre o menu de compartilhar. Baixei os arquivos.')}});
+}
+
+/* =====================================================================
+   v24 — Exames pendentes em duas seções (Exames de sangue / Outros exames), qualquer pedido, qualquer pessoa
+   ===================================================================== */
+var TIPOS_EX=[['sangue','Sangue'],['urina','Urina'],['fezes','Fezes'],['imagem','Imagem'],['procedimento','Procedimento'],['outro','Outro tipo']],pedAb={};
+function tipoExAuto(n){
+  var t=norm(n);
+  if(/fezes|coprocult|parasitol|sangue oculto|calprotectina/.test(t))return'fezes';
+  if(/^eas\b|urina|urocultura|proteinuria|uroanalise|sumario de urina/.test(t))return'urina';
+  if(/ultrassom|ultrassonografia|\busg\b|raio.?x|radiografia|tomografia|ressonancia|densitometria|ecocardiograma|mamografia|cintilografia|exames? de imagem|doppler/.test(t))return'imagem';
+  if(/eletroneuromiografia|eletrocardiograma|\becg\b|eletroencefalograma|endoscopia|colonoscopia|bi[oó]psia|biopsia|polissonografia|espirometria|teste ergom|holter|mapa 24/.test(t))return'procedimento';
+  if(/hemograma|\bvhs\b|\bpcr\b|proteina c reativa|vitamina|b12|\bt3\b|\bt4\b|tsh|\bcpk\b|\bck\b|ck-mb|ck\/cpk|\btgo\b|\btgp\b|\bast\b|\balt\b|ureia|creatinina|\bfan\b|fator reumatoide|anti-?dna|anti-?sm|anti-?ro|anti-?la|anti-?ccp|glicemia|glicada|hba1c|colesterol|triglicer|ferritina|ferro\b|calcio|fosforo|albumina|sodio|potassio|magnesio|\bpth\b|insulina|cortisol|testosterona|\bpsa\b|\bldh\b|bilirrubina|gama.?gt|fosfatase|acido urico|hormonio|complemento|c3\b|c4\b|igg|igm|iga\b|sorologia|hiv|hepatite/.test(t))return'sangue';
+  return'';
+}
+function tipoEx(x){return x.tipoEx==='?'?'':(x.tipoEx||tipoExAuto(x.n))}
+function tipoExNome(t){var r='';TIPOS_EX.forEach(function(k){if(k[0]===t)r=k[1]});return r||'Tipo a definir'}
+var PED_ST=[['pedido','Solicitado'],['agendado','Agendado'],['realizado','Realizado'],['cancelado','Cancelado']];
+function pedTag(x){
+  var st=x.s,cls={agendado:'sp-relatado',realizado:'sp-melhorou',resultado:'sp-melhorou',cancelado:'sp-presente'}[st]||'sp-naoconf',tx=st==='resultado'?'Resultado disponível':(PED_ST.filter(function(k){return k[0]===st})[0]||[0,st])[1];
+  return'<span class="sp '+cls+'">'+tx+'</span>';
+}
+function pedLinha(p,i,g,fora){
+  var x=p.pend[i],sub=[];
+  if(fora)sub.push(tipoExNome(tipoEx(x)));
+  if(x.s==='agendado'&&x.ag)sub.push([x.ag.d,x.ag.hora,x.ag.local].filter(Boolean).join(' · '));
+  else if((x.s==='realizado'||x.s==='resultado')&&x.dataReal)sub.push('coletado em '+x.dataReal);
+  if(x.obs)sub.push(x.obs);
+  var na=g?p.docs.filter(function(d){return d.vinc===g.key&&d.exame&&norm(d.exame)===norm(x.n)}).length:0;
+  if(na)sub.push('📎 '+na+' anexo(s)');
+  return'<div class="prow"><input type="checkbox" aria-label="Selecionar '+esc(x.n)+'" '+(pedSel[i]?'checked ':'')+'onchange="pedTog('+i+',this.checked)"><button class="pname" onclick="pedEdita('+i+')"><b>'+esc(x.n)+'</b>'+(sub.length?'<span>'+esc(sub.join(' · '))+'</span>':'')+'</button>'+pedTag(x)+'</div>';
+}
+function pedSecHtml(p,g,gi,sec){
+  var ids=g.idx.filter(function(i){return(tipoEx(p.pend[i])==='sangue')===(sec==='sangue')});
+  var k=gi+'#'+sec,ab=!!pedAb[S.cur+':'+k],tit=sec==='sangue'?'Exames de sangue':'Outros exames',c={};
+  ids.forEach(function(i){c[p.pend[i].s]=(c[p.pend[i].s]||0)+1});
+  var res=['pedido','agendado','realizado','cancelado'].filter(function(s){return c[s]}).map(function(s){return c[s]+' '+({pedido:'solic.',agendado:'agend.',realizado:'realiz.',cancelado:'cancel.'}[s])}).join(' · ');
+  var all=ids.length&&ids.every(function(i){return pedSel[i]});
+  var h='<div class="scat'+(ab?' open':'')+'"><button class="sch" onclick="pedSec(\''+k+'\')">'+(sec==='sangue'?IC.drop:IC.flask)+'<b>'+tit+' ('+ids.length+')</b><em>'+(ab?'⌃':'⌄')+'</em></button>';
+  if(!ab&&ids.length&&res)h+='<div class="mut" style="padding:4px 14px 8px">'+res+'</div>';
+  if(ab){
+    h+='<div class="sbody" style="padding:0 12px 6px">';
+    if(!ids.length)h+='<div class="mut" style="padding:8px 0">Nenhum.</div>';
+    else h+='<label class="pall"><input type="checkbox" '+(all?'checked ':'')+'onchange="pedAllSec(\''+k+'\',this.checked)"> Selecionar todos</label>'+ids.map(function(i){return pedLinha(p,i,g,sec!=='sangue')}).join('');
+    h+='</div>';
+  }
+  return h+'</div>';
+}
+function pedSec(k){var q=S.cur+':'+k;pedAb[q]=!pedAb[q];render(true)}
+function pedAllSec(k,on){
+  var m=/^(\d+)#(\w+)$/.exec(k),p=P(),g=pedGrupos(p)[+m[1]];
+  g.idx.filter(function(i){return(tipoEx(p.pend[i])==='sangue')===(m[2]==='sangue')}).forEach(function(i){if(on)pedSel[i]=true;else delete pedSel[i]});
+  render(true);
+}
+function pedGrupoHtml(p,g,gi){
+  var docs=p.docs.map(function(d,i){return{d:d,i:i}}).filter(function(o){return o.d.vinc===g.key});
+  return'<div class="card ped"><h2>Exames pendentes — '+esc(g.esp)+'</h2><div class="mut" style="margin-bottom:8px">Solicitados em '+esc(g.dataSol)+' · '+pedResumo(p,g)+'</div>'+
+    pedSecHtml(p,g,gi,'sangue')+pedSecHtml(p,g,gi,'outros')+
+    '<div class="grp">Pedido médico e resultados ('+docs.length+')</div>'+
+    docs.map(function(o){return'<div class="li"><div class="exr" style="align-items:center"><div style="min-width:0"><b>'+esc(o.d.nome||o.d.file)+'</b><div class="mut">'+esc(o.d.d)+' · '+esc(o.d.tipo||'')+'</div></div></div>'+
+      (o.d.id?'<div class="row" style="margin-top:4px"><button class="btn sm" onclick="visualizaDoc('+o.i+')">Visualizar</button><button class="btn sm" style="background:var(--gold)" onclick="compartilhaDoc('+o.i+')">Compartilhar</button></div>':'<div class="mut">Original não está neste aparelho.</div>')+'</div>'}).join('')+
+    '<div class="row wrap" style="margin-top:8px"><label class="btn sm sec fbtn">'+IC.cam+' Foto do pedido<input type="file" accept="image/*,application/pdf" multiple hidden onchange="pedAnexa('+gi+',\'Pedido\',this)"></label>'+
+    '<label class="btn sm sec fbtn">'+IC.upl+' PDF dos resultados<input type="file" accept="application/pdf,image/*" multiple hidden onchange="pedAnexa('+gi+',\'Exame\',this)"></label></div>'+
+    (docs.length>1?'<div class="row" style="margin-top:6px"><button class="btn sm sec" onclick="pedCompartilha('+gi+')">'+IC.share+' Compartilhar todos os anexos</button></div>':'')+'</div>';
+}
+function pedidosHtml(p){
+  var gs=pedGrupos(p);
+  return'<div class="row" style="margin-bottom:10px"><button class="btn" onclick="pedNova()">'+IC.plus+' Nova solicitação de exames</button></div>'+
+    gs.map(function(g,gi){return pedGrupoHtml(p,g,gi)}).join('')+pedBarHtml();
+}
+function pedBarHtml(){
+  var n=pedSelIdx().length;
+  return'<div id="pbar" class="pbar'+(n?'':' hide')+'"><b>'+n+' selecionado(s)</b><button class="btn sm" onclick="pedAgenda()">Agendar selecionados</button><button class="btn sm" style="background:var(--gold)" onclick="pedReal()">Realizados</button>'+
+    '<select onchange="pedMais(this.value);this.value=\'\'"><option value="">Mais…</option><option value="cancelado">Cancelar exames</option><option value="pedido">Voltar para solicitado</option><option value="descartado">Tirar da lista</option></select>'+
+    '<button class="btn sm sec" onclick="pedSel={};render(true)">Limpar</button></div>';
+}
+function pedMais(v){
+  if(!v)return;var ids=pedSelIdx();if(!ids.length){alert('Marque os exames.');return}var p=P();
+  if(v==='descartado'&&!confirm('Tirar '+ids.length+' exame(s) da lista? Eles continuam no histórico.'))return;
+  if(v==='cancelado'&&!confirm('Marcar '+ids.length+' exame(s) como cancelado(s)?'))return;
+  ids.forEach(function(i){var x=p.pend[i];logAnt('pend',x);x.s=v;if(v==='pedido')delete x.ag});
+  pedSel={};save();render(true);
+}
+/* editar um exame só */
+function pedEdita(i){
+  var p=P(),x=p.pend[i],ag=x.ag||{},st=x.s==='resultado'?'realizado':x.s,t=tipoEx(x);
+  var iso=st==='agendado'?(ag.iso||''):(st==='realizado'&&x.dataReal?(function(m){return m?m[3]+'-'+m[2]+'-'+m[1]:''})(/(\d{2})\/(\d{2})\/(\d{4})/.exec(x.dataReal)):'');
+  var g=pedGrupos(p).filter(function(k){return k.idx.indexOf(i)>=0})[0];
+  var corpo='<div class="mut" style="margin-bottom:6px">'+esc(x.esp||'')+(x.dataSol?' · solicitado em '+esc(x.dataSol):'')+'</div>'+
+    '<label>Situação</label><select id="pe_s">'+PED_ST.map(function(k){return'<option value="'+k[0]+'"'+(k[0]===st?' selected':'')+'>'+k[1]+'</option>'}).join('')+'</select>'+
+    '<div class="row wrap"><div><label>Data (do exame ou da coleta)</label><input type="date" id="pe_d" value="'+esc(iso)+'"></div><div><label>Horário</label><input type="time" id="pe_h" value="'+esc(ag.hora||'')+'"></div></div>'+
+    '<label>Laboratório ou clínica</label><input id="pe_l" value="'+esc(ag.local||'')+'">'+
+    '<label>Tipo de exame '+(t?'':'<span class="mut">— não identificado, escolha se souber</span>')+'</label><select id="pe_t"><option value="?"'+(t?'':' selected')+'>Não sei (a definir)</option>'+TIPOS_EX.map(function(k){return'<option value="'+k[0]+'"'+(k[0]===t?' selected':'')+'>'+k[1]+'</option>'}).join('')+'</select>'+
+    (g&&(st==='realizado')?'<label class="btn sm sec fbtn" style="margin-top:10px">'+IC.upl+' Anexar resultado (PDF ou foto)<input type="file" accept="application/pdf,image/*" multiple hidden onchange="pedAnexaEx('+i+',this)"></label>':'');
+  pedSheet(esc(x.n),corpo,'pedEditaSalva('+i+')');
+}
+function pedEditaSalva(i){
+  var p=P(),x=p.pend[i],st=val('pe_s'),iso=val('pe_d');
+  if(st==='agendado'&&!iso){alert('Informe a data do agendamento.');return}
+  logAnt('pend',x);x.s=st;
+  var tp=val('pe_t');if(tp){if(tp!==tipoExAuto(x.n)||x.tipoEx)x.tipoEx=tp;if(tp===tipoExAuto(x.n)&&tp!=='?')delete x.tipoEx}
+  if(st==='agendado')x.ag={iso:iso,d:dataBR(iso),hora:val('pe_h'),local:val('pe_l')};
+  else if(st==='realizado')x.dataReal=dataBR(iso||isoHoje());
+  else if(st==='pedido')delete x.ag;
+  save();pedFecha();render(true);toast('Salvo.');
+}
+function pedSalvaArquivos(fs,base,tipo,data,vinc,exame,n0){
+  fs=[].slice.call(fs).filter(function(f){return/pdf$/i.test(f.name)||f.type==='application/pdf'||/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic)$/i.test(f.name)});
+  if(!fs.length){alert('Escolha fotos ou PDFs.');return 0}
+  fs.forEach(function(f,k){
+    var e={file:f,nome:base+((n0+fs.length)>1?' ('+(n0+k+1)+')':''),d:data,tipo:tipo,pac:S.cur,drive:true,vinc:vinc};if(exame)e.exame=exame;
+    docsPend.push(e);var idx=docsPend.length-1;docSalva(idx);if(docsPend.length>idx&&docsPend[idx]&&docsPend[idx].file===f)docsPend.splice(idx,1);
+  });
+  return fs.length;
+}
+function pedAnexa(gi,tipo,inp){
+  var p=P(),g=pedGrupos(p)[gi];if(!g)return;var fs=inp.files;
+  var base=tipo==='Pedido'?'Pedido de exames — '+g.esp+', '+g.dataSol:'Resultados — '+g.esp+' (pedido de '+g.dataSol+')';
+  var n0=p.docs.filter(function(d){return d.vinc===g.key&&d.tipo===tipo&&!d.exame}).length,hoje=dataBR(isoHoje());
+  pedSalvaArquivos(fs,base,tipo,tipo==='Pedido'?g.dataSol:hoje,g.key,'',n0);inp.value='';
+}
+function pedAnexaEx(i,inp){
+  var p=P(),x=p.pend[i],g=pedGrupos(p).filter(function(k){return k.idx.indexOf(i)>=0})[0];if(!g)return;
+  var n0=p.docs.filter(function(d){return d.vinc===g.key&&d.exame&&norm(d.exame)===norm(x.n)}).length;
+  var ok=pedSalvaArquivos(inp.files,'Resultado — '+x.n+' ('+g.esp+', pedido de '+g.dataSol+')','Exame',dataBR(isoHoje()),g.key,x.n,n0);inp.value='';
+  if(ok){pedFecha();render(true)}
+}
+/* nova solicitação (qualquer pessoa, qualquer especialidade) */
+function pedNova(){
+  var p=P(),esps=espList().filter(function(e){return e!=='Outra…'});
+  pedSheet('Nova solicitação de exames',
+    '<label>Especialidade</label><select id="pn_e">'+esps.map(function(e){return'<option'+(e===lastEsp?' selected':'')+'>'+esc(e)+'</option>'}).join('')+'</select>'+
+    '<label>Outra especialidade <span class="mut">— se não estiver na lista</span></label><input id="pn_o">'+
+    '<label>Data da solicitação</label><input type="date" id="pn_d" value="'+isoHoje()+'">'+
+    '<label>Exames <span class="mut">— um por linha (ou separados por vírgula)</span></label><textarea id="pn_x" rows="6" placeholder="Hemograma completo&#10;TSH&#10;Urina tipo 1"></textarea>','pedNovaSalva()');
+}
+function pedNovaSalva(){
+  var p=P(),esp=val('pn_o')||val('pn_e'),iso=val('pn_d')||isoHoje(),ds=dataBR(iso);
+  var nomes=val('pn_x').split(/[\n;,]+/).map(function(s){return s.replace(/^\s*(\d+\s*[.)\-]|[-•*])\s*/,'').trim()}).filter(Boolean);
+  if(!esp||!nomes.length){alert('Informe a especialidade e pelo menos um exame.');return}
+  var novos=0,prom=0,ord=p.pend.filter(function(x){return x.esp===esp&&x.dataSol===ds}).length;
+  nomes.forEach(function(n){
+    var mesmo=p.pend.some(function(y){return y.esp===esp&&y.dataSol===ds&&norm(y.n)===norm(n)&&y.s!=='descartado'});if(mesmo)return;
+    var sug=null;p.pend.forEach(function(y){if(!sug&&y.s==='a pedir'&&norm(y.n)===norm(n))sug=y});
+    ord++;
+    if(sug){sug.espAnt=sug.esp;sug.s='pedido';sug.esp=esp;sug.dataSol=ds;sug.ord=ord;delete sug.cond;prom++}
+    else{p.pend.push({n:n,s:'pedido',esp:esp,dataSol:ds,ord:ord});novos++}
+  });
+  lastEsp=esp;save();pedFecha();render(true);toast(novos+prom+' exame(s) solicitado(s).');
 }
 
 pintaIcones();
