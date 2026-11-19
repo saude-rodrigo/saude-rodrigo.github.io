@@ -299,6 +299,7 @@ function secCards(p){
   return secRow(IC.heart,'Visão geral','Identificação, peso e evolução (7 dias): <b>'+tr[0]+'</b>',"","goSaude('geral')")+
     secRow(IC.bolt,'Sintomas',ns?ns+' acompanhado(s)':'Nenhum acompanhado',"","goSaude('sint')")+
     secRow(IC.pill,'Medicamentos',p.meds.length?esc(p.meds.slice(0,3).map(function(m){return m.n}).join(' • '))+(p.meds.length>3?' …':''):'Nenhum cadastrado',pend?'<span class="pill">'+pend+' a confirmar</span>':'',"goSaude('meds')")+
+    secRow(IC.cal,'Exames agendados',agSub(p),"","goSaude('agendados')")+
     secRow(IC.flask,'Exames',p.exames.length?'Último: '+esc(dts[0])+' · '+ue.length+' tipo(s)':'Nenhum resultado ainda',fora?'<span class="pill hi">'+fora+' fora da ref.</span>':'',"goSaude('exames')")+
     secRow(IC.clip,'Diagnósticos',diag.length?conf+' confirmado(s) · '+inv+' em investigação · '+(diag.length-conf-inv)+' outros':'Nenhum registrado',"","goSaude('diag')")+
     secRow(IC.cal,'Consultas',(p.agenda.length?p.agenda.length+' agendada(s)':'Nada agendado'),"","goCons('proximas')")+
@@ -307,8 +308,9 @@ function secCards(p){
     '<div class="row" style="margin-top:6px"><button class="btn sec" onclick="compartilhaPront()">'+IC.share+' Compartilhar resumo</button></div>';
 }
 function saudeSub(p){
-  var T={diag:'Diagnósticos',sint:'Sintomas',meds:'Medicamentos',exames:'Exames',geral:'Visão geral',hist:'Histórico'};
+  var T={agendados:'Exames agendados',diag:'Diagnósticos',sint:'Sintomas',meds:'Medicamentos',exames:'Exames',geral:'Visão geral',hist:'Histórico'};
   var h=voltaBtn("saudeSec=null;render()",T[saudeSec]||'Saúde')+'<p class="mut" style="margin:-4px 0 10px 4px">Prontuário de '+esc(nome1(p))+'</p>';
+  if(saudeSec==='agendados')return h+vAgendados(p);
   if(saudeSec==='diag')return h+vDiag(p);
   if(saudeSec==='sint')return voltaBtn("saudeSec=null;render()",'Sintomas de '+esc(nome1(p)))+'<p class="mut" style="margin:-4px 0 10px 4px">Acompanhamento clínico</p>'+vSintomas(p);
   if(saudeSec==='meds')return h+vMeds(p);
@@ -934,7 +936,7 @@ function pedGrupoHtml(p,g,gi){
 }
 function pedidosHtml(p){
   var gs=pedGrupos(p);
-  return'<div class="row" style="margin-bottom:10px"><button class="btn" onclick="pedNova()">'+IC.plus+' Nova solicitação de exames</button></div>'+
+  return'<div class="row" style="margin-bottom:10px"><button class="btn" onclick="pedNova()">'+IC.plus+' Nova solicitação</button><button class="btn sec" onclick="goSaude(\'agendados\')">'+IC.cal+' Dias marcados</button></div>'+
     gs.map(function(g,gi){return pedGrupoHtml(p,g,gi)}).join('')+pedBarHtml();
 }
 function pedBarHtml(){
@@ -1058,6 +1060,45 @@ function pedGLiberar(x){
 }
 function pedAvisaG(n){
   if(window.G&&G.connected())sincAgenda();else toast(n+' agendado(s) no app. Conecte o ☁ para irem ao Google Agenda.');
+}
+
+/* =====================================================================
+   v28 — Exames agendados: os dias marcados, em uma parte separada
+   ===================================================================== */
+var DIAS_SEM=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+function agLista(p){
+  var g={},ord=[];
+  (p.pend||[]).forEach(function(x,i){
+    if(x.s!=='agendado'||!x.ag||!x.ag.iso)return;
+    var k=[x.ag.iso,x.ag.hora||'',x.ag.local||''].join('|');
+    if(!g[k]){g[k]={iso:x.ag.iso,hora:x.ag.hora||'',local:x.ag.local||'',idx:[]};ord.push(g[k])}
+    g[k].idx.push(i);
+  });
+  return ord.sort(function(a,b){return(a.iso+a.hora)<(b.iso+b.hora)?-1:(a.iso+a.hora)>(b.iso+b.hora)?1:0});
+}
+function agSub(p){
+  var l=agLista(p),n=l.reduce(function(s,g){return s+g.idx.length},0);
+  if(!n)return'Nenhum exame agendado';
+  var hoje=isoHoje(),prox=l.filter(function(g){return g.iso>=hoje})[0]||l[l.length-1];
+  return n+' exame(s) · próximo dia: '+dataBR(prox.iso)+(prox.hora?' às '+prox.hora:'');
+}
+function vAgendados(p){
+  var l=agLista(p),hoje=isoHoje(),semData=(p.pend||[]).filter(function(x){return x.s==='pedido'}).length;
+  var h='<div class="row" style="margin-bottom:10px"><button class="btn sec" onclick="goSaude(\'exames\')">'+IC.flask+' Ver todos os exames pendentes</button></div>';
+  if(!l.length)h+='<div class="card"><div class="empty">Nenhum exame agendado ainda. Em <b>Exames</b>, marque os exames e toque em <b>Agendar selecionados</b>.</div></div>';
+  var prox=l.filter(function(g){return g.iso>=hoje}),pass=l.filter(function(g){return g.iso<hoje});
+  function bloco(tit,arr){
+    if(!arr.length)return'';
+    return'<div class="grp">'+tit+'</div>'+arr.map(function(g){
+      var d=new Date(g.iso+'T12:00:00');
+      return'<div class="card"><h2 style="margin:0">'+dataBR(g.iso)+' <span class="mut" style="font-weight:400;font-size:14px">'+DIAS_SEM[d.getDay()]+(g.hora?' · '+esc(g.hora):' · horário a confirmar')+'</span></h2>'+
+        (g.local?'<div class="mut" style="margin:2px 0 6px">'+IC.search.replace('<svg','<svg style="width:14px;height:14px;vertical-align:-2px"')+' '+esc(g.local)+'</div>':'<div class="mut" style="margin:2px 0 6px">Local não informado</div>')+
+        g.idx.map(function(i){var x=p.pend[i];return'<button class="srow" style="padding-left:2px" onclick="pedEdita('+i+')"><span class="stx"><b>'+esc(x.n)+'</b><span>'+esc(x.esp||'')+(tipoEx(x)&&tipoEx(x)!=='sangue'?' · '+tipoExNome(tipoEx(x)):'')+'</span></span><em>›</em></button>'}).join('')+'</div>';
+    }).join('');
+  }
+  h+=bloco('Próximos dias',prox)+bloco('Datas que já passaram (marque como realizados em Exames)',pass);
+  if(semData)h+='<div class="card"><div class="mut">'+semData+' exame(s) solicitado(s) ainda <b>sem data marcada</b>.</div><button class="btn sm sec" style="margin-top:6px" onclick="goSaude(\'exames\')">Marcar datas</button></div>';
+  return h;
 }
 pintaIcones();
 render();
