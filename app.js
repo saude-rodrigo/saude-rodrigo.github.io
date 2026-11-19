@@ -23,14 +23,20 @@ function nz(x){return(x==null||x===''||(typeof x==='number'&&isNaN(x)))?'—':x}
 
 /* ---------- utilidades ---------- */
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function vtxt(e){return(e.v!=null&&!isNaN(e.v))?e.v:(e.vt||'—')}
 function flag(e){
   var v=e.v,lo=e.min,hi=e.max;
-  if(hi!=null&&v>hi)return['alterado','t-hi'];
-  if(lo!=null&&v<lo)return['alterado','t-hi'];
+  if(v==null||isNaN(v)){
+    if(e.refT&&e.vt){var a=norm(e.vt).replace(/s$/,''),b=norm(e.refT).replace(/s$/,'');return a===b?['dentro da ref.','t-ok']:['fora da ref.','t-hi']}
+    return['ver no laudo','t-lim'];
+  }
+  if(hi!=null&&v>hi)return['fora da ref.','t-hi'];
+  if(lo!=null&&v<lo)return['fora da ref.','t-hi'];
+  if(lo==null&&hi==null)return['sem referência','t-lim'];
   if(e.lim)return['no limite','t-lim'];
-  return['ok','t-ok'];
+  return['dentro da ref.','t-ok'];
 }
-function refTxt(e){if(e.ref)return e.ref;if(e.min!=null&&e.max!=null)return e.min+' – '+e.max;return ''}
+function refTxt(e){if(e.ref)return e.ref;if(e.min!=null&&e.max!=null)return e.min+' – '+e.max;return e.refT||''}
 function pad(n){return(n<10?'0':'')+n}
 function fmtDate(iso){if(!iso)return'';var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
 function nowStr(){var d=new Date();return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())}
@@ -415,7 +421,7 @@ function addDia(){
 
 
 /* ---------- configurações ---------- */
-var APP_VER='v17 · 19/11/2026';
+var APP_VER='v18 · 19/11/2026';
 function vConfig(){
   var conn=window.G&&G.configured()&&G.connected();
   var h='<div class="card"><h2>⚙ Configurações</h2><p class="mut" style="margin:0">Versão do app: <b>'+APP_VER+'</b></p>'+
@@ -714,7 +720,7 @@ function editConsulta(p){
     '<p class="mut" style="margin:0 0 6px">Escreva o que quer perguntar a este médico. As perguntas já escritas são sugestões: edite, apague ou acrescente. Tudo entra no resumo abaixo e sai na impressão.</p>';
   q.forEach(function(t,i){h+='<div class="row" style="margin-bottom:4px;align-items:center"><input value="'+esc(t)+'" onchange="setPerg('+i+',this.value)"><button class="btn sm sec" style="flex:0 0 auto" onclick="delPerg('+i+')" aria-label="Remover">✕</button></div>'});
   h+='<div class="row" style="margin-top:6px"><input id="npq" placeholder="Nova pergunta"><button class="btn sm" style="flex:0 0 auto" onclick="addPerg()">Adicionar</button></div>'+
-    examesBlock(p)+'<label>Observações extras para o médico</label><textarea rows="3" onchange="saveObs(this.value)" placeholder="Ex.: o sangramento piora depois de esforço…">'+esc(ob)+'</textarea></div>';
+    '<details class="mais"><summary>Exames do resumo (escolher quais aparecem)</summary>'+examesBlock(p)+'</details><label>Observações extras para o médico</label><textarea rows="3" onchange="saveObs(this.value)" placeholder="Ex.: o sangramento piora depois de esforço…">'+esc(ob)+'</textarea></div>';
   return h;
 }
 function setPerg(i,v){getPerg(P())[i]=v;save()}
@@ -765,7 +771,7 @@ function exportReg(k){
   var p=P(),nm=p.nome.split(' ')[0],rows,file;
   if(k==='exames'){
     file='Historico-de-exames-'+nm+'.csv';
-    rows=[['Data','Exame','Valor','Unidade','Referência','Situação']].concat(p.exames.slice().sort(function(a,b){return dkey(a.d)<dkey(b.d)?-1:1}).map(function(e){return[e.d,e.n,vc(e.v),e.u,refTxt(e),flag(e)[0]]}));
+    rows=[['Data','Exame','Valor','Unidade','Referência','Situação']].concat(p.exames.slice().sort(function(a,b){return dkey(a.d)<dkey(b.d)?-1:1}).map(function(e){return[e.d,e.n,e.v!=null?vc(e.v):(e.vt||''),e.u,refTxt(e),flag(e)[0]]}));
   }else if(k==='bio'){
     file='Bioimpedancia-'+nm+'.csv';
     rows=[['Data','Peso (kg)','Massa de gordura (kg)','Massa muscular (kg)','Gordura visceral','IMC','Gordura corporal (%)','Cintura-quadril','TMB (kcal)','Água corporal (L)']].concat(p.bio.map(function(b){return[b.d,vc(b.peso),vc(b.gord),vc(b.musc),vc(b.visc),vc(b.imc),vc(b.pgc),vc(b.rcq),vc(b.tmb),vc(b.agua)]}));
@@ -800,11 +806,22 @@ function extract(f){
     function next(){
       if(i>doc.numPages)return Promise.resolve(out.join('\n'));
       return doc.getPage(i++).then(function(pg){return pg.getTextContent()}).then(function(tc){
-        var rows={};
-        tc.items.forEach(function(it){var y=Math.round(it.transform[5]/3);(rows[y]=rows[y]||[]).push(it)});
-        Object.keys(rows).map(Number).sort(function(a,b){return b-a}).forEach(function(y){
-          out.push(rows[y].sort(function(a,b){return a.transform[4]-b.transform[4]}).map(function(it){return it.str}).join(' '));
+        var its=tc.items.filter(function(it){return it.str&&it.str.trim()!==''||it.str===' '}).map(function(it){return{s:it.str,x:it.transform[4],y:it.transform[5],w:it.width||0}});
+        its.sort(function(a,b){return b.y-a.y||a.x-b.x});
+        var lines=[],minX=1e9;its.forEach(function(it){if(it.s.trim())minX=Math.min(minX,it.x)});
+        its.forEach(function(it){var l=lines[lines.length-1];if(l&&Math.abs(l.y-it.y)<=2.5)l.it.push(it);else lines.push({y:it.y,it:[it]})});
+        lines.forEach(function(l){
+          l.it.sort(function(a,b){return a.x-b.x});
+          var s='',end=null;
+          l.it.forEach(function(it,k){
+            if(!it.s.trim()){return}
+            if(end===null)s+=new Array(Math.max(0,Math.round((it.x-minX)/5))+1).join(' ');
+            else{var g=it.x-end;s+=g<1.5?'':g<9?' ':new Array(Math.max(3,Math.round(g/4))+1).join(' ')}
+            s+=it.s;end=it.x+it.w;
+          });
+          out.push(s);
         });
+        out.push('\f');
         return next();
       });
     }
@@ -849,7 +866,7 @@ function dkey(s){var m=/(\d{2})\/(\d{2})\/(\d{4})/.exec(s||'');return m?m[3]+m[2
 function sheetTabs(p){
   var num=function(x){return x===''||x==null||isNaN(x)?'':+x};
   return[
-    {title:'Histórico de exames',rows:[['Data','Exame','Valor','Unidade','Referência','Situação']].concat(p.exames.slice().sort(function(a,b){return dkey(a.d)<dkey(b.d)?-1:1}).map(function(e){return[e.d,e.n,e.v,e.u,refTxt(e),flag(e)[0]]}))},
+    {title:'Histórico de exames',rows:[['Data','Exame','Valor','Unidade','Referência','Situação']].concat(p.exames.slice().sort(function(a,b){return dkey(a.d)<dkey(b.d)?-1:1}).map(function(e){return[e.d,e.n,vtxt(e),e.u,refTxt(e),flag(e)[0]]}))},
     {title:'Bioimpedância',rows:[['Data','Peso (kg)','Massa de gordura (kg)','Massa muscular (kg)','Gordura visceral','IMC','Gordura corporal (%)','Cintura-quadril','TMB (kcal)','Água corporal (L)']].concat(p.bio.map(function(b){return[b.d,num(b.peso),num(b.gord),num(b.musc),num(b.visc),num(b.imc),num(b.pgc),num(b.rcq),num(b.tmb),num(b.agua)]}))},
     {title:'Diário de sintomas',rows:[['Data','Sangue nas fezes','Fezes pretas','Tontura/desmaio','Dor (0-10)','Rigidez (0-10)','Fadiga (0-10)','Falta de ar (0-10)','Observações','Sintomas','Onde dói','Pressão','Sono (h)','Gatilhos','Urina: dificuldade (0-10)','Urina: cor','Urina: quantidade','Urina (ml)','Vezes ao banheiro','Urina: sintomas','Urina: obs']].concat(p.diario.map(function(x){return[x.d,x.s,x.pre?'sim':'não',x.tont?'sim':'não',+x.dor,+x.rig,+x.fad,+x.res,x.obs||'',x.sint?Object.keys(x.sint).map(function(k){return k+' '+x.sint[k]}).join('; '):'',x.onde||'',x.psis?x.psis+'x'+x.pdia:'',x.sono||'',(x.gat||[]).join('; '),x.uri?x.uri.dif:'',x.uri?x.uri.cor:'',x.uri?x.uri.qtd:'',x.uri?x.uri.ml:'',x.uri?x.uri.vez:'',x.uri?x.uri.sint.join('; '):'',x.uri?x.uri.obs:'']}))},
     {title:'Em uso',rows:[['Tipo','Nome','Dose / uso','Motivo','Finalidade','Pontos para revisar']].concat(p.meds.map(function(m){return[m.tipo||'Medicamento',m.n,m.dose||'',m.motivo||'',m.finalidade||'',m.nota&&m.nota!=='—'?m.nota:'']}))},

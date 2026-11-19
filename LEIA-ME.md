@@ -43,3 +43,6 @@ Ao atualizar o app depois: aumente o número em `sw.js` (`saude-a-dois-v1` → `
 
 ## v17 (19/11/2026)
 Reformulação: 5 áreas (Início, Saúde, Arquivos, Consultas, Adicionar); prontuário por pessoa com diagnósticos, sintomas, medicamentos, exames e histórico; busca; importação de PDF/foto com leitura no aparelho (OCR) e conferência; resumo médico automático; histórico de alterações preservado.
+
+## v18 (19/11/2026)
+Diagnósticos por tipo (confirmado/investigação/relatado/antecedente), medicamentos com situação 'pendente de confirmação', sintomas 0–10, leitura de laudos paginados com referência do próprio laboratório e categorias, exames em avaliação (sugerido ≠ solicitado), resumo para o médico em 8 seções, ficha inicial importável (.json), compartilhar pelo Android, exportar/excluir dados por pessoa.

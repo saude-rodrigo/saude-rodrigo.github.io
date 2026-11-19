@@ -1,8 +1,8 @@
 // Service worker: deixa o app abrir sem internet.
 // Só guarda os arquivos do próprio app. Nada de dados de saúde passa por aqui.
-var CACHE = 'saude-a-dois-v17';
+var CACHE = 'saude-a-dois-v18';
 var ARQUIVOS = [
-  './', 'index.html', 'style.css', 'app.js', 'prontuario.js', 'google.js', 'config.js',
+  './', 'index.html', 'style.css', 'app.js', 'prontuario.js', 'ficha.js', 'google.js', 'config.js',
   'manifest.webmanifest', 'pdf.min.js', 'pdf.worker.min.js',
   'capa.jpg', 'icons.js', 'cena.jpg', 'no.png', 'impacto.png', 'icon-192.png', 'icon-512.png'
 ];
@@ -23,8 +23,22 @@ self.addEventListener('activate', function (e) {
 
 self.addEventListener('fetch', function (e) {
   var req = e.request;
-  if (req.method !== 'GET') return;
   var url = new URL(req.url);
+  // Menu Compartilhar do Android: guarda os arquivos recebidos só neste aparelho e abre o app
+  if (req.method === 'POST' && /share-target$/.test(url.pathname)) {
+    e.respondWith((async function () {
+      var fd = await req.formData();
+      var fs = fd.getAll('arquivos').filter(function (f) { return f && f.name; });
+      await caches.delete('saude-share');
+      var c = await caches.open('saude-share');
+      for (var i = 0; i < fs.length; i++) {
+        await c.put(new Request(self.registration.scope + 'recebido/' + i + '/' + encodeURIComponent(fs[i].name)), new Response(fs[i], { headers: { 'Content-Type': fs[i].type || 'application/octet-stream' } }));
+      }
+      return Response.redirect(self.registration.scope + '?share=' + fs.length, 303);
+    })());
+    return;
+  }
+  if (req.method !== 'GET') return;
   if (url.origin !== location.origin) return; // Google e outros: sempre direto da rede
   e.respondWith(
     caches.match(req).then(function (hit) {
